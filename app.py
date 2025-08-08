@@ -30,9 +30,31 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* Mini tablas */
-      .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
-      .table-box { height: 320px; overflow-y: auto; overflow-x: hidden; }
+      /* Rectángulos iguales para las mini-tablas */
+      .mini-rect {
+          height: 350px;               /* altura fija para las tres */
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid #eee;
+          border-radius: 10px;
+          background: #fff;
+          overflow: hidden;
+      }
+      .mini-title {
+          font-weight: 600;
+          padding: 6px 8px;
+          border-bottom: 1px solid #f0f0f0;
+          background: #fafafa;
+          flex: 0 0 auto;              /* no crece */
+          margin: 0;
+      }
+      .table-box {
+          flex: 1 1 auto;              /* la tabla ocupa todo el resto del rectángulo */
+          height: auto;                 /* ignora una altura fija */
+          overflow-y: auto;
+          overflow-x: hidden;
+      }
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
@@ -58,7 +80,7 @@ st.markdown(
     <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.75rem;">
         <h1 style="font-size:1.5rem; margin:0;">Draft Biosidus Aging</h1>
         <img src="data:image/png;base64,{logo_base64}" alt="Logo"
-             style="height:50px; position: absolute; right: -30px; top: 13px;">
+             style="height:50px; position: absolute; right: -25px; top: 13px;">
     </div>
     """,
     unsafe_allow_html=True
@@ -266,14 +288,26 @@ def render_table_html(df_small: pd.DataFrame) -> str:
 with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")), unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Mercado</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t2:
-        st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")), unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Canal</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t3:
-        st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")), unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Cliente</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
