@@ -149,7 +149,6 @@ for col in metric_cols:
 st.markdown(cards_html, unsafe_allow_html=True)
 
 # ================== PIE (ECharts) con etiquetas cortas ==================
-# Mapa SOLO del pie -> etiquetas en español cortas
 label_map = {
     "NOT_DUE_AMOUNT_USD": "No vencido",
     "DUE_30_DAYS_USD": "30",
@@ -172,34 +171,37 @@ echarts_colors = [
     "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC", "#2f4554", "#61a0a8"
 ]
 
-pie_options = {
-    "color": echarts_colors,
-    "tooltip": {"trigger": "item", "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"},
-    "legend": {"show": False},
-    "series": [{
-        "name": "Buckets",
-        "type": "pie",
-        "radius": ["40%", "70%"],
-        "selectedMode": "single",
-        "avoidLabelOverlap": True,
-        "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
-        "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
-        "labelLine": {"show": False},
-        "data": pie_data,
-        "emphasis": {"scale": True, "scaleSize": 8}
-    }]
-}
+# ====== LAYOUT: PIE (izquierda) + 3 tablas (derecha) ======
+col_chart, col_tables = st.columns([2, 1])
 
-st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
-click_ret = st_echarts(
-    options=pie_options,
-    height="360px",
-    key=f"pie_{filters_version}",
-    events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
-)
-clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
+with col_chart:
+    st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla y los resúmenes)")
+    pie_options = {
+        "color": echarts_colors,
+        "tooltip": {"trigger": "item", "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"},
+        "legend": {"show": False},
+        "series": [{
+            "name": "Buckets",
+            "type": "pie",
+            "radius": ["40%", "70%"],
+            "selectedMode": "single",
+            "avoidLabelOverlap": True,
+            "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
+            "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
+            "labelLine": {"show": False},
+            "data": pie_data,
+            "emphasis": {"scale": True, "scaleSize": 8}
+        }]
+    }
+    click_ret = st_echarts(
+        options=pie_options,
+        height="360px",
+        key=f"pie_{filters_version}",
+        events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
+    )
+    clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
-# ================== APLICAR FILTROS A LA TABLA ==================
+# ================== APLICAR FILTROS A DATAFRAME PARA TABLAS Y GRILLA ==================
 df_filtered = df.copy()
 
 def apply_eq_filter(frame, column, selected_value):
@@ -220,7 +222,35 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TABLA ==================
+# ================== TRES TABLAS RESUMEN (derecha) ==================
+def summarize_in_millions(frame: pd.DataFrame, group_col: str) -> pd.DataFrame:
+    # suma total por fila (sobre columnas NUM)
+    num_cols = [f"_{c}_NUM" for c in metric_cols]
+    tmp = frame.copy()
+    tmp["_TOTAL_USD_NUM"] = tmp[num_cols].sum(axis=1)
+    out = (
+        tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"]
+           .sum()
+           .sort_values(ascending=False)
+           .reset_index()
+    )
+    out["Total (M USD)"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
+    return out[[group_col, "Total (M USD)"]]
+
+with col_tables:
+    st.subheader("Mercado")
+    tbl_mercado = summarize_in_millions(df_filtered, "VKORG_TXT")
+    st.dataframe(tbl_mercado, use_container_width=True, hide_index=True, height=180)
+
+    st.subheader("Canal")
+    tbl_canal = summarize_in_millions(df_filtered, "VTWEG_TXT")
+    st.dataframe(tbl_canal, use_container_width=True, hide_index=True, height=180)
+
+    st.subheader("Cliente")
+    tbl_cliente = summarize_in_millions(df_filtered, "KUNNR_TXT")
+    st.dataframe(tbl_cliente, use_container_width=True, hide_index=True, height=220)
+
+# ================== TABLA DETALLE (debajo) ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
 st.dataframe(
     df_filtered.drop(columns=drop_aux, errors="ignore"),
