@@ -8,7 +8,7 @@ st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
 # Título principal (arriba del header)
 st.markdown(
-    "<h1 style='text-align:center; margin: 0.25rem 0 0.75rem;'>draft biosidus aging</h1>",
+    "<h1 style='text-align:center; margin: 0.25rem 0 0.75rem;'>Draft Biosidus Aging</h1>",
     unsafe_allow_html=True
 )
 
