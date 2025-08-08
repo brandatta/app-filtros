@@ -33,7 +33,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Columnas requeridas para filtros y métricas
+# Columnas requeridas
 REQUIRED_COLUMNS = [
     "BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT",
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
@@ -80,7 +80,7 @@ if missing:
     st.error(f"Faltan columnas requeridas en el Excel: {', '.join(missing)}")
     st.stop()
 
-# ================== PARSEO NUMÉRICO ROBUSTO ==================
+# ================== PARSEO NUMÉRICO ==================
 def smart_to_numeric(s: pd.Series) -> pd.Series:
     if pd.api.types.is_numeric_dtype(s):
         return s.fillna(0)
@@ -88,17 +88,16 @@ def smart_to_numeric(s: pd.Series) -> pd.Series:
     if s1.isna().mean() > 0.5:
         s2 = (
             s.astype(str)
-             .str.replace(r"\.", "", regex=True)   # quita miles con punto
-             .str.replace(",", ".", regex=False)   # coma -> punto decimal
+             .str.replace(r"\.", "", regex=True)
+             .str.replace(",", ".", regex=False)
         )
         s1 = pd.to_numeric(s2, errors="coerce")
     return s1.fillna(0)
 
-# Crear columnas NUM limpias
 for col in metric_cols:
     df[f"_{col}_NUM"] = smart_to_numeric(df[col])
 
-# ================== CONTROL DE RESETEO SIN st.rerun() ==================
+# ================== CONTROL DE RESETEO ==================
 if "filters_version" not in st.session_state:
     st.session_state["filters_version"] = 0
 filters_version = st.session_state["filters_version"]
@@ -114,7 +113,7 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}_{filters_version}"  # key versionada para resetear a "Todos"
+        key = f"sel_{colname}_{filters_version}"
         return st.selectbox(label, options=options, index=0, key=key)
 
     sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
@@ -124,15 +123,12 @@ with st.sidebar:
     sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
     if st.button("🧹 Limpiar filtros", use_container_width=True):
-        st.session_state["filters_version"] += 1  # reinicia selects a "Todos"
+        st.session_state["filters_version"] += 1
 
-# ================== BASE PARA TARJETAS / PIE (total o por Cliente) ==================
-if sel_KUNNR_TXT != "Todos":
-    df_for_metrics = df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
-else:
-    df_for_metrics = df
+# ================== BASE PARA TARJETAS ==================
+df_for_metrics = df if sel_KUNNR_TXT == "Todos" else df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 
-# ================== TARJETAS (compactas, en millones; nombres originales) ==================
+# ================== TARJETAS ==================
 def format_usd_millions(x: float) -> str:
     millones = x / 1_000_000
     return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -148,7 +144,7 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE (ECharts) con etiquetas cortas ==================
+# ================== PIE CHART ==================
 label_map = {
     "NOT_DUE_AMOUNT_USD": "No vencido",
     "DUE_30_DAYS_USD": "30",
@@ -162,20 +158,16 @@ label_map = {
 }
 reverse_label_map = {v: k for k, v in label_map.items()}
 
-# Totales por columna -> proporción respecto al total sumado de columnas
 col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
 pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sums.items() if v > 0]
 
-echarts_colors = [
-    "#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
-    "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC", "#2f4554", "#61a0a8"
-]
+echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
+                  "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# ====== LAYOUT: PIE (izquierda) + 3 tablas (derecha) ======
 col_chart, col_tables = st.columns([2, 1])
 
 with col_chart:
-    st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla y los resúmenes)")
+    st.caption("Distribución por buckets")
     pie_options = {
         "color": echarts_colors,
         "tooltip": {"trigger": "item", "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"},
@@ -189,8 +181,7 @@ with col_chart:
             "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
             "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
             "labelLine": {"show": False},
-            "data": pie_data,
-            "emphasis": {"scale": True, "scaleSize": 8}
+            "data": pie_data
         }]
     }
     click_ret = st_echarts(
@@ -201,7 +192,7 @@ with col_chart:
     )
     clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
-# ================== APLICAR FILTROS A DATAFRAME PARA TABLAS Y GRILLA ==================
+# ================== APLICAR FILTROS ==================
 df_filtered = df.copy()
 
 def apply_eq_filter(frame, column, selected_value):
@@ -209,76 +200,45 @@ def apply_eq_filter(frame, column, selected_value):
         return frame[frame[column].astype(str) == str(selected_value)]
     return frame
 
-df_filtered = apply_eq_filter(df_filtered, "BUKRS_TXT", sel_BUKRS_TXT)
-df_filtered = apply_eq_filter(df_filtered, "KUNNR_TXT", sel_KUNNR_TXT)
-df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
-df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
-df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
+for col_f, sel in [
+    ("BUKRS_TXT", sel_BUKRS_TXT),
+    ("KUNNR_TXT", sel_KUNNR_TXT),
+    ("PRCTR", sel_PRCTR),
+    ("VKORG_TXT", sel_VKORG_TXT),
+    ("VTWEG_TXT", sel_VTWEG_TXT)
+]:
+    df_filtered = apply_eq_filter(df_filtered, col_f, sel)
 
-# Si se clickeó una porción -> mapear etiqueta ES -> columna original, filas con valor > 0
 if clicked_bucket_es in reverse_label_map:
     col_original = reverse_label_map[clicked_bucket_es]
     if col_original in metric_cols:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TRES TABLAS RESUMEN (derecha) ==================
+# ================== TABLAS RESUMEN ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str) -> pd.DataFrame:
-    # suma total por fila (sobre columnas NUM)
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
     tmp["_TOTAL_USD_NUM"] = tmp[num_cols].sum(axis=1)
-    out = (
-        tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"]
-           .sum()
-           .sort_values(ascending=False)
-           .reset_index()
-    )
+    out = tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"].sum().reset_index()
     out["Total (M USD)"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
-    return out[[group_col, "Total (M USD)"]]
+    return out[[group_col, "Total (M USD)"]].sort_values(by="Total (M USD)", ascending=False)
 
 with col_tables:
-    st.subheader("Mercado")
-    tbl_mercado = summarize_in_millions(df_filtered, "VKORG_TXT")
-    st.dataframe(tbl_mercado, use_container_width=True, hide_index=True, height=180)
+    t1, t2, t3 = st.columns(3)
 
-    st.subheader("Canal")
-    tbl_canal = summarize_in_millions(df_filtered, "VTWEG_TXT")
-    st.dataframe(tbl_canal, use_container_width=True, hide_index=True, height=180)
+    with t1:
+        st.subheader("Mercado")
+        st.dataframe(summarize_in_millions(df_filtered, "VKORG_TXT"), use_container_width=True, hide_index=True, height=220)
 
-    st.subheader("Cliente")
-    tbl_cliente = summarize_in_millions(df_filtered, "KUNNR_TXT")
-    st.dataframe(tbl_cliente, use_container_width=True, hide_index=True, height=220)
+    with t2:
+        st.subheader("Canal")
+        st.dataframe(summarize_in_millions(df_filtered, "VTWEG_TXT"), use_container_width=True, hide_index=True, height=220)
 
-# ================== TABLA DETALLE (debajo) ==================
+    with t3:
+        st.subheader("Cliente")
+        st.dataframe(summarize_in_millions(df_filtered, "KUNNR_TXT"), use_container_width=True, hide_index=True, height=220)
+
+# ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
-st.dataframe(
-    df_filtered.drop(columns=drop_aux, errors="ignore"),
-    use_container_width=True,
-    hide_index=True
-)
-
-# ================== DESCARGAS ==================
-col1, col2 = st.columns(2)
-with col1:
-    csv_data = df_filtered.drop(columns=drop_aux, errors="ignore").to_csv(index=False).encode("utf-8")
-    st.download_button("Descargar CSV", data=csv_data, file_name="aging_filtrado.csv", mime="text/csv", use_container_width=True)
-with col2:
-    @st.cache_data(show_spinner=False)
-    def to_excel_bytes(_df):
-        import io
-        with pd.ExcelWriter(io.BytesIO(), engine="xlsxwriter") as writer:
-            _df.to_excel(writer, index=False, sheet_name="Datos")
-            writer.close()
-            return writer.book.filename.getvalue()
-    try:
-        xlsx_data = to_excel_bytes(df_filtered.drop(columns=drop_aux, errors="ignore"))
-        st.download_button(
-            "Descargar Excel",
-            data=xlsx_data,
-            file_name="aging_filtrado.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    except Exception:
-        st.warning("No se pudo generar el Excel. Probá con CSV.")
+st.dataframe(df_filtered.drop(columns=drop_aux, errors="ignore"), use_container_width=True, hide_index=True)
