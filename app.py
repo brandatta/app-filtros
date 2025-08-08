@@ -29,10 +29,30 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* ===== Mini-tablas: wrapper con alto fijo, sin scroll horizontal ===== */
-      .mini-wrap { height: 380px; display: flex; flex-direction: column; }
-      .mini-title { font-weight: 600; margin: 0 0 6px 2px; line-height: 20px; height: 20px; }
-      .table-box { flex: 1; height: auto; overflow-y: auto; overflow-x: hidden; }
+      /* ===== Mini-tablas cuadradas, sin scroll horizontal ===== */
+      .mini-square {
+          aspect-ratio: 1 / 1;           /* cuadrado perfecto */
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid #eee;
+          border-radius: 10px;
+          background: #fff;
+          overflow: hidden;               /* oculta desbordes */
+      }
+      .mini-title {
+          font-weight: 600;
+          padding: 6px 8px;
+          border-bottom: 1px solid #f0f0f0;
+          background: #fafafa;
+          line-height: 18px;
+          flex: 0 0 auto;                 /* altura fija del header */
+      }
+      .table-box {
+          flex: 1 1 auto;                 /* ocupa todo el resto del cuadrado */
+          overflow-y: auto;
+          overflow-x: hidden;
+      }
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
@@ -267,17 +287,29 @@ def render_table_html(df_small: pd.DataFrame) -> str:
 with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown('<div class="mini-wrap"><div class="mini-title">Mercado</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-square">'
+            '<div class="mini-title">Mercado</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t2:
-        st.markdown('<div class="mini-wrap"><div class="mini-title">Canal</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-square">'
+            '<div class="mini-title">Canal</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t3:
-        st.markdown('<div class="mini-wrap"><div class="mini-title">Cliente</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-square">'
+            '<div class="mini-title">Cliente</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
