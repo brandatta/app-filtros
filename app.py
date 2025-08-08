@@ -143,33 +143,33 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE CHART INTERACTIVO ==================
-# DF con los totales (mismos que tarjetas)
+# ================== PIE CHART INTERACTIVO (proporción por suma de columnas) ==================
+# 1) Suma por columna (sobre df_for_metrics)
+col_sums = {col: df_for_metrics[f"_{col}_NUM"].sum() for col in metric_cols}
+
+# 2) Total = suma de todas las columnas (bucket sum)
+total_valor = sum(col_sums.values())
+
+# 3) Armar DF del pie
 pie_df = pd.DataFrame({
-    "bucket": metric_cols,
-    "valor": [df_for_metrics[f"_{c}_NUM"].sum() for c in metric_cols]
+    "bucket": list(col_sums.keys()),
+    "valor": list(col_sums.values())
 })
 
-# Calcular proporción respecto al total de todos los buckets
-total_valor = pie_df["valor"].sum()
-if total_valor > 0:
-    pie_df["proporcion"] = pie_df["valor"] / total_valor
-else:
-    pie_df["proporcion"] = 0.0
-
-# Mostrar solo sectores con valor > 0
+# 4) Solo buckets con valor > 0
 pie_df = pie_df[pie_df["valor"] > 0].reset_index(drop=True)
 
-# Colores distintos por porción
+# 5) Colores distintos
 color_seq = px.colors.qualitative.Plotly
 if len(color_seq) < len(pie_df):
     times = (len(pie_df) // len(color_seq)) + 1
     color_seq = (color_seq * times)[:len(pie_df)]
 
+# 6) Graficar: Plotly calcula % = valor / sum(valor) -> coincide con proporción respecto del total de buckets
 fig = px.pie(
     pie_df,
     names="bucket",
-    values="valor",  # Plotly calculará % = valor / sum(valor) -> coincide con proporción
+    values="valor",
     hole=0.35,
     color="bucket",
     color_discrete_sequence=color_seq
@@ -196,7 +196,7 @@ clicked_points = plotly_events(
 
 clicked_bucket = None
 if clicked_points:
-    # Mapeo robusto por pointNumber -> pie_df
+    # Mapeo robusto por pointNumber hacia pie_df
     pt = clicked_points[0]
     pn = pt.get("pointNumber")
     if pn is not None and 0 <= pn < len(pie_df):
