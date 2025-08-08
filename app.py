@@ -90,26 +90,16 @@ if missing:
 
 # ================== PARSEO NUMÉRICO ROBUSTO ==================
 def smart_to_numeric(s: pd.Series) -> pd.Series:
-    """Convierte strings tipo '1.234,56' o '1,234.56' a número.
-    Estrategia:
-      1) to_numeric directo
-      2) si hay muchas NaN, intenta quitar separador de miles '.' y convertir ',' a '.'
-    """
     if pd.api.types.is_numeric_dtype(s):
         return s.fillna(0)
-
     s1 = pd.to_numeric(s, errors="coerce")
-    nan_ratio = s1.isna().mean()
-
-    if nan_ratio > 0.5:
-        # Intento alternativo: remover puntos como miles y usar coma como decimal
+    if s1.isna().mean() > 0.5:
         s2 = (
             s.astype(str)
              .str.replace(r"\.", "", regex=True)   # quita miles con punto
              .str.replace(",", ".", regex=False)   # coma -> punto decimal
         )
         s1 = pd.to_numeric(s2, errors="coerce")
-
     return s1.fillna(0)
 
 # Crear columnas NUM limpias
@@ -166,27 +156,27 @@ for col in metric_cols:
 st.markdown(cards_html, unsafe_allow_html=True)
 
 # ================== PIE CHART (proporción por suma de columnas) ==================
-# 1) Suma por columna sobre df_for_metrics (usar columnas NUM)
-col_sums = {col: df_for_metrics[f"_{col}_NUM"].sum() for col in metric_cols}
+# 1) Suma por columna (usar NUM)
+col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
 
-# 2) Total = suma de todas las columnas
-total_valor = sum(col_sums.values())
-
-# 3) Armar DF del pie y filtrar > 0
+# 2) DF del pie y asegurar dtype NUMÉRICO explícito
 pie_df = pd.DataFrame({"bucket": list(col_sums.keys()), "valor": list(col_sums.values())})
-pie_df = pie_df[pie_df["valor"] > 0].reset_index(drop=True)
+pie_df["valor_num"] = pd.to_numeric(pie_df["valor"], errors="coerce").fillna(0.0).astype(float)
 
-# 4) Colores distintos
+# 3) Filtrar > 0
+pie_df = pie_df[pie_df["valor_num"] > 0].reset_index(drop=True)
+
+# 4) Colores
 color_seq = px.colors.qualitative.Plotly
 if len(color_seq) < len(pie_df):
     times = (len(pie_df) // len(color_seq)) + 1
     color_seq = (color_seq * times)[:len(pie_df)]
 
-# 5) Graficar (Plotly usa valor/suma(valor) para porcentaje)
+# 5) Graficar usando la columna NUMÉRICA
 fig = px.pie(
     pie_df,
     names="bucket",
-    values="valor",
+    values="valor_num",  # <- clave: aseguramos tipo float
     hole=0.35,
     color="bucket",
     color_discrete_sequence=color_seq
@@ -209,14 +199,13 @@ if clicked_points:
     if pn is not None and 0 <= pn < len(pie_df):
         clicked_bucket = pie_df.loc[pn, "bucket"]
 
-# ====== Verificación rápida de valores que alimentan el pie (opcional) ======
+# ====== Verificación rápida (opcional) ======
 with st.expander("Ver totales por bucket (debug)"):
-    if total_valor > 0:
-        debug_df = pie_df.copy()
-        debug_df["porcentaje"] = debug_df["valor"] / debug_df["valor"].sum()
-        st.dataframe(debug_df, use_container_width=True, hide_index=True)
-    else:
-        st.write("Total de buckets = 0")
+    debug_df = pie_df[["bucket", "valor_num"]].copy()
+    total = debug_df["valor_num"].sum()
+    if total > 0:
+        debug_df["%"] = debug_df["valor_num"] / total
+    st.dataframe(debug_df, use_container_width=True, hide_index=True)
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
@@ -232,7 +221,7 @@ df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
 df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
 df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
 
-# Si se clickeó una porción -> mostrar filas con valor > 0 en ese bucket (respetando filtros)
+# Si se clickeó una porción -> filas con valor > 0 en ese bucket (respetando filtros)
 if clicked_bucket in metric_cols:
     df_filtered = df_filtered[smart_to_numeric(df_filtered[clicked_bucket]) > 0]
     st.success(f"Filtrado por sector: {clicked_bucket}")
