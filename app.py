@@ -48,6 +48,11 @@ REQUIRED_COLUMNS = [
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
 
+metric_cols = [
+    "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
+    "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
+]
+
 # ================== CARGA DE DATOS ==================
 @st.cache_data(show_spinner=False)
 def load_excel(path_or_buffer):
@@ -56,7 +61,7 @@ def load_excel(path_or_buffer):
     return df
 
 df = None
-default_path = Path("AGING AL 2025-01-28.xlsx")  # archivo por defecto si está en la misma carpeta
+default_path = Path("AGING AL 2025-01-28.xlsx")
 
 with st.sidebar:
     st.markdown("**Archivo**")
@@ -83,6 +88,34 @@ if missing:
     st.error(f"Faltan columnas requeridas en el Excel: {', '.join(missing)}")
     st.stop()
 
+# ================== PARSEO NUMÉRICO ROBUSTO ==================
+def smart_to_numeric(s: pd.Series) -> pd.Series:
+    """Convierte strings tipo '1.234,56' o '1,234.56' a número.
+    Estrategia:
+      1) to_numeric directo
+      2) si hay muchas NaN, intenta quitar separador de miles '.' y convertir ',' a '.'
+    """
+    if pd.api.types.is_numeric_dtype(s):
+        return s.fillna(0)
+
+    s1 = pd.to_numeric(s, errors="coerce")
+    nan_ratio = s1.isna().mean()
+
+    if nan_ratio > 0.5:
+        # Intento alternativo: remover puntos como miles y usar coma como decimal
+        s2 = (
+            s.astype(str)
+             .str.replace(r"\.", "", regex=True)   # quita miles con punto
+             .str.replace(",", ".", regex=False)   # coma -> punto decimal
+        )
+        s1 = pd.to_numeric(s2, errors="coerce")
+
+    return s1.fillna(0)
+
+# Crear columnas NUM limpias
+for col in metric_cols:
+    df[f"_{col}_NUM"] = smart_to_numeric(df[col])
+
 # ================== CONTROL DE RESETEO SIN st.rerun() ==================
 if "filters_version" not in st.session_state:
     st.session_state["filters_version"] = 0
@@ -99,7 +132,7 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}_{filters_version}"  # key versionada para resetear a "Todos"
+        key = f"sel_{colname}_{filters_version}"
         return st.selectbox(label, options=options, index=0, key=key)
 
     sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
@@ -108,30 +141,19 @@ with st.sidebar:
     sel_VKORG_TXT = dropdown("Mercado",  "VKORG_TXT")
     sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
-    # Botón para limpiar filtros (sin st.rerun)
     if st.button("🧹 Limpiar filtros", use_container_width=True):
-        st.session_state["filters_version"] += 1  # cambia las keys de los widgets -> vuelven a "Todos"
+        st.session_state["filters_version"] += 1  # reinicia selects a "Todos"
 
-# ================== LISTA DE MÉTRICAS / TARJETAS ==================
-metric_cols = [
-    "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
-    "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
-]
-
-# Asegurar columnas numéricas (por si vienen como texto)
-for col in metric_cols:
-    df[f"_{col}_NUM"] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-def format_usd(x: float) -> str:
-    return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-# Base para tarjetas (y pie): total o por Cliente si está filtrado
+# ================== BASE PARA TARJETAS / PIE (total o por Cliente) ==================
 if sel_KUNNR_TXT != "Todos":
     df_for_metrics = df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 else:
     df_for_metrics = df
 
 # ================== TARJETAS ==================
+def format_usd(x: float) -> str:
+    return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
 cards_html = ""
 for col in metric_cols:
     val = df_for_metrics[f"_{col}_NUM"].sum()
@@ -143,29 +165,24 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE CHART INTERACTIVO (proporción por suma de columnas) ==================
-# 1) Suma por columna (sobre df_for_metrics)
+# ================== PIE CHART (proporción por suma de columnas) ==================
+# 1) Suma por columna sobre df_for_metrics (usar columnas NUM)
 col_sums = {col: df_for_metrics[f"_{col}_NUM"].sum() for col in metric_cols}
 
-# 2) Total = suma de todas las columnas (bucket sum)
+# 2) Total = suma de todas las columnas
 total_valor = sum(col_sums.values())
 
-# 3) Armar DF del pie
-pie_df = pd.DataFrame({
-    "bucket": list(col_sums.keys()),
-    "valor": list(col_sums.values())
-})
-
-# 4) Solo buckets con valor > 0
+# 3) Armar DF del pie y filtrar > 0
+pie_df = pd.DataFrame({"bucket": list(col_sums.keys()), "valor": list(col_sums.values())})
 pie_df = pie_df[pie_df["valor"] > 0].reset_index(drop=True)
 
-# 5) Colores distintos
+# 4) Colores distintos
 color_seq = px.colors.qualitative.Plotly
 if len(color_seq) < len(pie_df):
     times = (len(pie_df) // len(color_seq)) + 1
     color_seq = (color_seq * times)[:len(pie_df)]
 
-# 6) Graficar: Plotly calcula % = valor / sum(valor) -> coincide con proporción respecto del total de buckets
+# 5) Graficar (Plotly usa valor/suma(valor) para porcentaje)
 fig = px.pie(
     pie_df,
     names="bucket",
@@ -180,27 +197,26 @@ fig.update_traces(
     hovertemplate="<b>%{label}</b><br>Valor: %{value:,.2f} USD<br>%{percent}",
     sort=False
 )
-fig.update_layout(
-    margin=dict(l=0, r=0, t=0, b=0),
-    showlegend=False,
-)
+fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=False)
 
 st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
-clicked_points = plotly_events(
-    fig,
-    click_event=True,
-    hover_event=False,
-    select_event=False,
-    key=f"pie_{filters_version}"
-)
+clicked_points = plotly_events(fig, click_event=True, hover_event=False, select_event=False, key=f"pie_{filters_version}")
 
 clicked_bucket = None
 if clicked_points:
-    # Mapeo robusto por pointNumber hacia pie_df
     pt = clicked_points[0]
     pn = pt.get("pointNumber")
     if pn is not None and 0 <= pn < len(pie_df):
         clicked_bucket = pie_df.loc[pn, "bucket"]
+
+# ====== Verificación rápida de valores que alimentan el pie (opcional) ======
+with st.expander("Ver totales por bucket (debug)"):
+    if total_valor > 0:
+        debug_df = pie_df.copy()
+        debug_df["porcentaje"] = debug_df["valor"] / debug_df["valor"].sum()
+        st.dataframe(debug_df, use_container_width=True, hide_index=True)
+    else:
+        st.write("Total de buckets = 0")
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
@@ -218,7 +234,7 @@ df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
 
 # Si se clickeó una porción -> mostrar filas con valor > 0 en ese bucket (respetando filtros)
 if clicked_bucket in metric_cols:
-    df_filtered = df_filtered[pd.to_numeric(df_filtered[clicked_bucket], errors="coerce").fillna(0) > 0]
+    df_filtered = df_filtered[smart_to_numeric(df_filtered[clicked_bucket]) > 0]
     st.success(f"Filtrado por sector: {clicked_bucket}")
 
 # ================== TABLA ==================
