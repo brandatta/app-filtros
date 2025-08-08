@@ -31,7 +31,7 @@ st.markdown(
 
       /* Mini tablas: sin scroll horizontal, columnas fijas y wrap */
       .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
-      .table-box { height: 320px; overflow-y: auto; overflow-x: hidden; }
+      .table-box { height: 360px; overflow-y: auto; overflow-x: hidden; } /* altura fija */
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
@@ -244,10 +244,7 @@ def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd
     return out[[label, "M USD"]]
 
 def render_table_html(df_small: pd.DataFrame) -> str:
-    # Truncar visualmente demasiadas filas (si hay muchas, igual hay scroll vertical)
     df_small = df_small.copy()
-    # Convertir a HTML con nuestra clase y sin index
-    # Escapar HTML para datos si es necesario (pandas ya lo hace por defecto)
     html = ['<div class="table-box"><table class="table-compact">']
     # Header
     html.append("<thead><tr>")
@@ -257,10 +254,8 @@ def render_table_html(df_small: pd.DataFrame) -> str:
     # Body
     html.append("<tbody>")
     for _, row in df_small.iterrows():
-        # Primera col puede ser texto largo -> se envuelve; segunda numérica
         label_val = str(row.iloc[0])
         num_val = row.iloc[1]
-        # Formato 2 decimales
         if isinstance(num_val, (int, float)):
             num_txt = f"{num_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         else:
