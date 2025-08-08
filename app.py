@@ -32,7 +32,13 @@ st.markdown(
 
       /* Mini tablas */
       .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
-      .table-box { height: 320px; overflow-y: auto; overflow-x: hidden; }
+      .table-box { 
+          height: 320px; 
+          min-height: 320px; 
+          max-height: 320px;
+          overflow-y: auto; 
+          overflow-x: hidden; 
+      }
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
