@@ -38,6 +38,7 @@ REQUIRED_COLUMNS = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
+
 metric_cols = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
@@ -112,7 +113,7 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}_{filters_version}"
+        key = f"sel_{colname}_{filters_version}"  # key versionada para resetear a "Todos"
         return st.selectbox(label, options=options, index=0, key=key)
 
     sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
@@ -130,7 +131,7 @@ if sel_KUNNR_TXT != "Todos":
 else:
     df_for_metrics = df
 
-# ================== TARJETAS ==================
+# ================== TARJETAS (mantienen nombres originales) ==================
 def format_usd(x: float) -> str:
     return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -145,10 +146,23 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE (ECharts) ==================
-# Totales por columna (suma de columnas) -> proporción vs total
+# ================== PIE (ECharts) SOLO EN ESPAÑOL ==================
+label_map = {
+    "NOT_DUE_AMOUNT_USD": "No vencido",
+    "DUE_30_DAYS_USD": "Vencido 30 días",
+    "DUE_60_DAYS_USD": "Vencido 60 días",
+    "DUE_90_DAYS_USD": "Vencido 90 días",
+    "DUE_120_DAYS_USD": "Vencido 120 días",
+    "DUE_180_DAYS_USD": "Vencido 180 días",
+    "DUE_270_DAYS_USD": "Vencido 270 días",
+    "DUE_360_DAYS_USD": "Vencido 360 días",
+    "DUE_OVER_360_DAYS_USD": "Vencido +360 días",
+}
+reverse_label_map = {v: k for k, v in label_map.items()}
+
+# Totales por columna -> proporción respecto al total sumado de columnas
 col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
-pie_data = [{"name": k, "value": float(v)} for k, v in col_sums.items() if v > 0]
+pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sums.items() if v > 0]
 
 echarts_colors = [
     "#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
@@ -162,8 +176,8 @@ pie_options = {
     "series": [{
         "name": "Buckets",
         "type": "pie",
-        "radius": ["40%", "70%"],   # donut
-        "selectedMode": "single",   # <- ayuda a UX de selección
+        "radius": ["40%", "70%"],
+        "selectedMode": "single",
         "avoidLabelOverlap": True,
         "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
         "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
@@ -174,15 +188,13 @@ pie_options = {
 }
 
 st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
-# DEVOLVER JSON SIMPLE {name, value} (no el params completo)
 click_ret = st_echarts(
     options=pie_options,
     height="380px",
     key=f"pie_{filters_version}",
     events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
 )
-
-clicked_bucket = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
+clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
@@ -198,10 +210,12 @@ df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
 df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
 df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
 
-# Si se clickeó una porción -> filas con valor > 0 en ese bucket (respetando filtros)
-if clicked_bucket in metric_cols:
-    df_filtered = df_filtered[smart_to_numeric(df_filtered[clicked_bucket]) > 0]
-    st.success(f"Filtrado por sector: {clicked_bucket}")
+# Si se clickeó una porción -> mapear etiqueta ES -> columna original, filas con valor > 0
+if clicked_bucket_es in reverse_label_map:
+    col_original = reverse_label_map[clicked_bucket_es]
+    if col_original in metric_cols:
+        df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
+        st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
 # ================== TABLA ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
