@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# Ocultar cabecera, menú y footer de Streamlit + tarjetas compactas + pequeños tweaks de legibilidad
+# Ocultar cabecera/menú/footer + tarjetas compactas + títulos de mini-tablas
 st.markdown(
     """
     <style>
@@ -29,7 +29,6 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* Encabezados de las mini-tablas */
       .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
     </style>
     """,
@@ -167,7 +166,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-col_chart, col_tables = st.columns([2, 1])
+# ⚠️ Hacemos las tablas MÁS ANCHAS: el área de tablas ahora es más grande que antes.
+col_chart, col_tables = st.columns([3, 2])  # antes [2,1]
 
 with col_chart:
     st.caption("Distribución por buckets")
@@ -218,7 +218,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TRES TABLAS ALINEADAS Y LEGIBLES (misma altura que el pie) ==================
+# ================== TRES TABLAS CUADRADAS, MÁS ANCHAS, SIN SCROLL HORIZONTAL ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -230,35 +230,39 @@ def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd
            .reset_index()
     )
     out.rename(columns={group_col: label}, inplace=True)
-    out["Total (M USD)"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
-    return out[[label, "Total (M USD)"]]
+    out["M USD"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
+    out = out[[label, "M USD"]]
+    # Truncar etiquetas demasiado largas para evitar ancho extra (sin cortar info clave)
+    out[label] = out[label].astype(str).str.slice(0, 28)
+    return out
 
 with col_tables:
+    # Tres columnas internas iguales; al tener más ancho total, cada una queda más ancha.
     t1, t2, t3 = st.columns(3)
 
     with t1:
         st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
         st.dataframe(
             summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado"),
-            use_container_width=True, hide_index=True, height=360
+            use_container_width=True, hide_index=True, height=320
         )
 
     with t2:
         st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
         st.dataframe(
             summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal"),
-            use_container_width=True, hide_index=True, height=360
+            use_container_width=True, hide_index=True, height=320
         )
 
     with t3:
         st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
         st.dataframe(
             summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente"),
-            use_container_width=True, hide_index=True, height=360
+            use_container_width=True, hide_index=True, height=320
         )
 
 # ================== TABLA DETALLE ==================
-drop_aux = [f"_{col}_NUM" for col in metric_cols]
+drop_aux = [f"_{col}_NUM" for c in metric_cols for col in [c]]
 st.dataframe(
     df_filtered.drop(columns=drop_aux, errors="ignore"),
     use_container_width=True, hide_index=True
