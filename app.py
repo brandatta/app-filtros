@@ -18,8 +18,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Columnas requeridas (sin BAD_DEBT_AMOUNT)
-REQUIRED_COLUMNS = ["BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT", "NOT_DUE_AMOUNT"]
+# Columnas requeridas (sin NOT_DUE_AMOUNT)
+REQUIRED_COLUMNS = ["BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT"]
 
 # ================== CARGA DE DATOS ==================
 @st.cache_data(show_spinner=False)
@@ -74,12 +74,11 @@ with st.sidebar:
             st.session_state[key] = "Todos"
         return st.selectbox(label, options=options, index=options.index(st.session_state[key]), key=key)
 
-    sel_BUKRS_TXT   = dropdown("Sociedad", "BUKRS_TXT")
-    sel_KUNNR_TXT   = dropdown("Cliente", "KUNNR_TXT")
-    sel_PRCTR       = dropdown("Cen.Ben", "PRCTR")
-    sel_VKORG_TXT   = dropdown("Mercado", "VKORG_TXT")
-    sel_VTWEG_TXT   = dropdown("Canal", "VTWEG_TXT")
-    sel_NOT_DUE_AMT = dropdown("NOT_DUE_AMOUNT", "NOT_DUE_AMOUNT")
+    sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
+    sel_KUNNR_TXT = dropdown("Cliente", "KUNNR_TXT")
+    sel_PRCTR     = dropdown("Cen.Ben",  "PRCTR")
+    sel_VKORG_TXT = dropdown("Mercado",  "VKORG_TXT")
+    sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
 # ================== APLICAR FILTROS ==================
 df_filtered = df.copy()
@@ -91,10 +90,9 @@ def apply_eq_filter(frame, column, selected_value):
 
 df_filtered = apply_eq_filter(df_filtered, "BUKRS_TXT", sel_BUKRS_TXT)
 df_filtered = apply_eq_filter(df_filtered, "KUNNR_TXT", sel_KUNNR_TXT)
-df_filtered = apply_eq_filter(df_filtered, "PRCTR", sel_PRCTR)
+df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
 df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
 df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
-df_filtered = apply_eq_filter(df_filtered, "NOT_DUE_AMOUNT", sel_NOT_DUE_AMT)
 
 # ================== TABLA ==================
 st.dataframe(df_filtered, use_container_width=True, hide_index=True)
@@ -115,8 +113,12 @@ with col2:
             return writer.book.filename.getvalue()
     try:
         xlsx_data = to_excel_bytes(df_filtered)
-        st.download_button("Descargar Excel", data=xlsx_data, file_name="aging_filtrado.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           use_container_width=True)
+        st.download_button(
+            "Descargar Excel",
+            data=xlsx_data,
+            file_name="aging_filtrado.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
     except Exception:
         st.warning("No se pudo generar el Excel. Probá con CSV.")
