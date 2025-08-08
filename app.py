@@ -95,12 +95,11 @@ def apply_eq_filter(frame, column, selected_value):
         return frame[frame[column].astype(str) == str(selected_value)]
     return frame
 
-df_filtered = apply_eq_filter(df_filtered, "BUKRS_TXT", sel_BUKRS_TXT)
-df_filtered = apply_eq_filter(df_filtered, "KUNNR_TXT", sel_KUNNR_TXT)
-df_filtered = apply_eq_filter(df_filtered, "PRCTR", sel_PRCTR)
-df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
-df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
-df_filtered = apply_eq_filter(df_filtered, "NOT_DUE_AMOUNT", sel_NOT_DUE_AMT)
+df_filtered = apply_eq_filter(df_filtered, "Sociedad", sel_BUKRS_TXT)
+df_filtered = apply_eq_filter(df_filtered, "Cliente", sel_KUNNR_TXT)
+df_filtered = apply_eq_filter(df_filtered, "Cen.Ben", sel_PRCTR)
+df_filtered = apply_eq_filter(df_filtered, "Mercado", sel_VKORG_TXT)
+df_filtered = apply_eq_filter(df_filtered, "Canal", sel_VTWEG_TXT)
 
 # ================== TABLA ==================
 st.dataframe(df_filtered, use_container_width=True, hide_index=True)
