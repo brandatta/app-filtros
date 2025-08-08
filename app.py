@@ -7,33 +7,26 @@ import base64
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# ---- Título y logo (arriba, logo esquina superior derecha) ----
-def get_base64_image(image_path: str) -> str:
+# Convertir logo a base64
+def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-# Si el archivo está en el repo, dejá el mismo nombre:
-LOGO_FILE = "logorelleno (1).png"
-logo_b64 = ""
-try:
-    if Path(LOGO_FILE).exists():
-        logo_b64 = get_base64_image(LOGO_FILE)
-except Exception:
-    logo_b64 = ""
+logo_base64 = get_base64_image("logorelleno (1).png")
 
+# Contenedor título + logo
 st.markdown(
     f"""
-    <div style="position: relative; margin: 0.25rem 0 0.75rem;">
-        <h1 style="text-align:center; font-size:1.5rem; margin:0;">
-            Draft Biosidus Aging
-        </h1>
-        {'<img src="data:image/png;base64,' + logo_b64 + '" alt="Logo" style="position:absolute; right:0; top:0; height:50px;">' if logo_b64 else ''}
+    <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.75rem;">
+        <h1 style="font-size:1.5rem; margin:0;">Draft Biosidus Aging</h1>
+        <img src="data:image/png;base64,{logo_base64}" alt="Logo"
+             style="height:50px; position: absolute; right: 0;">
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# ---- Estilos globales (oculto header Streamlit, tarjetas y tablas rectangulares) ----
+# Ocultar cabecera/menú/footer + estilos
 st.markdown(
     """
     <style>
@@ -56,39 +49,12 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* Rectángulos tablas */
-      .mini-rect {
-          height: 350px; /* alto fijo */
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          border: 1px solid #eee;
-          border-radius: 10px;
-          background: #fff;
-          overflow: hidden;
-      }
-      .mini-title {
-          font-weight: 600;
-          padding: 6px 8px;
-          border-bottom: 1px solid #f0f0f0;
-          background: #fafafa;
-          flex: 0 0 auto;
-      }
-      .table-box {
-          flex: 1 1 auto;
-          overflow-y: auto;
-          overflow-x: hidden;
-      }
-      .table-compact {
-          width: 100%;
-          table-layout: fixed;
-          border-collapse: collapse;
-      }
+      /* Mini tablas */
+      .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
+      .table-box { height: 320px; overflow-y: auto; overflow-x: hidden; }
+      .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
-          padding: 6px 8px;
-          border-bottom: 1px solid #eee;
-          font-size: 12px;
-          vertical-align: top;
+          padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
       }
       .table-compact th { position: sticky; top: 0; background: #fafafa; z-index: 1; }
       .table-compact th:first-child, .table-compact td:first-child { width: 68%; }
@@ -99,7 +65,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ================== Columnas requeridas ==================
+# Columnas requeridas
 REQUIRED_COLUMNS = [
     "BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT",
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
@@ -163,7 +129,7 @@ def smart_to_numeric(s: pd.Series) -> pd.Series:
 for col in metric_cols:
     df[f"_{col}_NUM"] = smart_to_numeric(df[col])
 
-# ================== CONTROL DE RESETEO (sin rerun) ==================
+# ================== CONTROL DE RESETEO ==================
 if "filters_version" not in st.session_state:
     st.session_state["filters_version"] = 0
 filters_version = st.session_state["filters_version"]
@@ -210,7 +176,7 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE CHART (clic para filtrar) ==================
+# ================== PIE CHART ==================
 label_map = {
     "NOT_DUE_AMOUNT_USD": "No vencido",
     "DUE_30_DAYS_USD": "30",
@@ -230,8 +196,7 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Más ancho para tablas (2,3)
-col_chart, col_tables = st.columns([2, 3])
+col_chart, col_tables = st.columns([3, 2.2])
 
 with col_chart:
     st.caption("Distribución por buckets")
@@ -253,15 +218,14 @@ with col_chart:
     }
     click_ret = st_echarts(
         options=pie_options,
-        height="350px",
+        height="360px",
         key=f"pie_{filters_version}",
         events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
     )
     clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
-# ================== APLICAR FILTROS A LA TABLA ==================
+# ================== APLICAR FILTROS ==================
 df_filtered = df.copy()
-
 def apply_eq_filter(frame, column, selected_value):
     if selected_value != "Todos":
         return frame[frame[column].astype(str) == str(selected_value)]
@@ -282,7 +246,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== RESÚMENES (tablas rectangulares, mismo alto) ==================
+# ================== TABLAS ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -318,26 +282,14 @@ def render_table_html(df_small: pd.DataFrame) -> str:
 with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown(
-            '<div class="mini-rect"><div class="mini-title">Mercado</div>' +
-            render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")), unsafe_allow_html=True)
     with t2:
-        st.markdown(
-            '<div class="mini-rect"><div class="mini-title">Canal</div>' +
-            render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")), unsafe_allow_html=True)
     with t3:
-        st.markdown(
-            '<div class="mini-rect"><div class="mini-title">Cliente</div>' +
-            render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")), unsafe_allow_html=True)
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
