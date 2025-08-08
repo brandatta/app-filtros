@@ -104,7 +104,7 @@ with st.sidebar:
     sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
     # Botón para limpiar filtros
-    if st.button("🧹 Limpiar filtros", use_container_width=True):
+    if st.button("Limpiar filtros", use_container_width=True):
         st.session_state["sel_BUKRS_TXT"] = "Todos"
         st.session_state["sel_KUNNR_TXT"] = "Todos"
         st.session_state["sel_PRCTR"]     = "Todos"
