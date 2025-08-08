@@ -29,27 +29,26 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* ===== Mini-tablas cuadradas, sin scroll horizontal ===== */
-      .mini-square {
-          aspect-ratio: 1 / 1;           /* cuadrado perfecto */
+      /* Rectángulos para tablas */
+      .mini-rect {
+          height: 350px;              /* altura fija */
           width: 100%;
           display: flex;
           flex-direction: column;
           border: 1px solid #eee;
           border-radius: 10px;
           background: #fff;
-          overflow: hidden;               /* oculta desbordes */
+          overflow: hidden;
       }
       .mini-title {
           font-weight: 600;
           padding: 6px 8px;
           border-bottom: 1px solid #f0f0f0;
           background: #fafafa;
-          line-height: 18px;
-          flex: 0 0 auto;                 /* altura fija del header */
+          flex: 0 0 auto;
       }
       .table-box {
-          flex: 1 1 auto;                 /* ocupa todo el resto del cuadrado */
+          flex: 1 1 auto;
           overflow-y: auto;
           overflow-x: hidden;
       }
@@ -57,7 +56,6 @@ st.markdown(
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
       }
-      .table-compact th { position: sticky; top: 0; background: #fafafa; z-index: 1; }
       .table-compact th:first-child, .table-compact td:first-child { width: 68%; }
       .table-compact th:last-child, .table-compact td:last-child { width: 32%; text-align: right; }
       .table-compact td { word-break: break-word; white-space: normal; }
@@ -72,6 +70,7 @@ REQUIRED_COLUMNS = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
+
 metric_cols = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
@@ -160,7 +159,7 @@ with st.sidebar:
 # ================== BASE PARA TARJETAS ==================
 df_for_metrics = df if sel_KUNNR_TXT == "Todos" else df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 
-# ================== TARJETAS (compactas, en millones; nombres originales) ==================
+# ================== TARJETAS ==================
 def format_usd_millions(x: float) -> str:
     millones = x / 1_000_000
     return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -196,7 +195,6 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Layout: más ancho para tablas
 col_chart, col_tables = st.columns([3, 2.2])
 
 with col_chart:
@@ -227,7 +225,6 @@ with col_chart:
 
 # ================== APLICAR FILTROS ==================
 df_filtered = df.copy()
-
 def apply_eq_filter(frame, column, selected_value):
     if selected_value != "Todos":
         return frame[frame[column].astype(str) == str(selected_value)]
@@ -248,7 +245,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== RESÚMENES ==================
+# ================== TRES TABLAS ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -264,14 +261,11 @@ def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd
     return out[[label, "M USD"]]
 
 def render_table_html(df_small: pd.DataFrame) -> str:
-    df_small = df_small.copy()
     html = ['<div class="table-box"><table class="table-compact">']
-    # Header
     html.append("<thead><tr>")
     for col in df_small.columns:
         html.append(f"<th>{col}</th>")
     html.append("</tr></thead>")
-    # Body
     html.append("<tbody>")
     for _, row in df_small.iterrows():
         label_val = str(row.iloc[0])
@@ -288,24 +282,21 @@ with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
         st.markdown(
-            '<div class="mini-square">'
-            '<div class="mini-title">Mercado</div>' +
+            '<div class="mini-rect"><div class="mini-title">Mercado</div>' +
             render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
             '</div>',
             unsafe_allow_html=True
         )
     with t2:
         st.markdown(
-            '<div class="mini-square">'
-            '<div class="mini-title">Canal</div>' +
+            '<div class="mini-rect"><div class="mini-title">Canal</div>' +
             render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
             '</div>',
             unsafe_allow_html=True
         )
     with t3:
         st.markdown(
-            '<div class="mini-square">'
-            '<div class="mini-title">Cliente</div>' +
+            '<div class="mini-rect"><div class="mini-title">Cliente</div>' +
             render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
             '</div>',
             unsafe_allow_html=True
