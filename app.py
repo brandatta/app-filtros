@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# Ocultar cabecera/menú/footer + tarjetas compactas + títulos de mini-tablas
+# Ocultar cabecera/menú/footer + tarjetas compactas + estilos de tablas legibles
 st.markdown(
     """
     <style>
@@ -29,7 +29,17 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
+      /* Mini tablas: sin scroll horizontal, columnas fijas y wrap */
       .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
+      .table-box { height: 320px; overflow-y: auto; overflow-x: hidden; }
+      .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
+      .table-compact th, .table-compact td {
+          padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
+      }
+      .table-compact th { position: sticky; top: 0; background: #fafafa; z-index: 1; }
+      .table-compact th:first-child, .table-compact td:first-child { width: 68%; }
+      .table-compact th:last-child, .table-compact td:last-child { width: 32%; text-align: right; }
+      .table-compact td { word-break: break-word; white-space: normal; }
     </style>
     """,
     unsafe_allow_html=True
@@ -166,8 +176,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# ⚠️ Hacemos las tablas MÁS ANCHAS: el área de tablas ahora es más grande que antes.
-col_chart, col_tables = st.columns([3, 2])  # antes [2,1]
+# Layout: más ancho para tablas (sin scroll horizontal)
+col_chart, col_tables = st.columns([3, 2.2])
 
 with col_chart:
     st.caption("Distribución por buckets")
@@ -218,7 +228,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TRES TABLAS CUADRADAS, MÁS ANCHAS, SIN SCROLL HORIZONTAL ==================
+# ================== TRES TABLAS (HTML) MÁS ANCHAS, CUADRADAS, SIN SCROLL HORIZONTAL ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -231,38 +241,48 @@ def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd
     )
     out.rename(columns={group_col: label}, inplace=True)
     out["M USD"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
-    out = out[[label, "M USD"]]
-    # Truncar etiquetas demasiado largas para evitar ancho extra (sin cortar info clave)
-    out[label] = out[label].astype(str).str.slice(0, 28)
-    return out
+    return out[[label, "M USD"]]
+
+def render_table_html(df_small: pd.DataFrame) -> str:
+    # Truncar visualmente demasiadas filas (si hay muchas, igual hay scroll vertical)
+    df_small = df_small.copy()
+    # Convertir a HTML con nuestra clase y sin index
+    # Escapar HTML para datos si es necesario (pandas ya lo hace por defecto)
+    html = ['<div class="table-box"><table class="table-compact">']
+    # Header
+    html.append("<thead><tr>")
+    for col in df_small.columns:
+        html.append(f"<th>{col}</th>")
+    html.append("</tr></thead>")
+    # Body
+    html.append("<tbody>")
+    for _, row in df_small.iterrows():
+        # Primera col puede ser texto largo -> se envuelve; segunda numérica
+        label_val = str(row.iloc[0])
+        num_val = row.iloc[1]
+        # Formato 2 decimales
+        if isinstance(num_val, (int, float)):
+            num_txt = f"{num_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            num_txt = str(num_val)
+        html.append(f"<tr><td>{label_val}</td><td>{num_txt}</td></tr>")
+    html.append("</tbody></table></div>")
+    return "".join(html)
 
 with col_tables:
-    # Tres columnas internas iguales; al tener más ancho total, cada una queda más ancha.
     t1, t2, t3 = st.columns(3)
-
     with t1:
         st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
-        st.dataframe(
-            summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado"),
-            use_container_width=True, hide_index=True, height=320
-        )
-
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")), unsafe_allow_html=True)
     with t2:
         st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
-        st.dataframe(
-            summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal"),
-            use_container_width=True, hide_index=True, height=320
-        )
-
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")), unsafe_allow_html=True)
     with t3:
         st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
-        st.dataframe(
-            summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente"),
-            use_container_width=True, hide_index=True, height=320
-        )
+        st.markdown(render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")), unsafe_allow_html=True)
 
 # ================== TABLA DETALLE ==================
-drop_aux = [f"_{col}_NUM" for c in metric_cols for col in [c]]
+drop_aux = [f"_{col}_NUM" for col in metric_cols]
 st.dataframe(
     df_filtered.drop(columns=drop_aux, errors="ignore"),
     use_container_width=True, hide_index=True
