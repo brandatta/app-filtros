@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
-import plotly.express as px
-from streamlit_plotly_events import plotly_events
+from streamlit_echarts import st_echarts
 
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
@@ -26,16 +25,8 @@ st.markdown(
           min-width: 150px;
           vertical-align: top;
       }
-      .metric-label {
-          font-size: 12px;
-          opacity: 0.8;
-          margin-bottom: 4px;
-      }
-      .metric-value {
-          font-size: 22px;
-          font-weight: 700;
-          line-height: 1.1;
-      }
+      .metric-label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+      .metric-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
     </style>
     """,
     unsafe_allow_html=True
@@ -155,57 +146,51 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE CHART (proporción por suma de columnas) ==================
-# 1) Suma por columna (usar NUM)
+# ================== PIE (ECharts) ==================
+# Totales por columna y proporción respecto al total sumado de columnas
 col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
+pie_data = [{"name": k, "value": float(v)} for k, v in col_sums.items() if v > 0]
 
-# 2) DF del pie y asegurar dtype NUMÉRICO explícito
-pie_df = pd.DataFrame({"bucket": list(col_sums.keys()), "valor": list(col_sums.values())})
-pie_df["valor_num"] = pd.to_numeric(pie_df["valor"], errors="coerce").fillna(0.0).astype(float)
+# Paleta cualitativa (ECharts)
+echarts_colors = [
+    "#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
+    "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC", "#2f4554", "#61a0a8"
+]
 
-# 3) Filtrar > 0
-pie_df = pie_df[pie_df["valor_num"] > 0].reset_index(drop=True)
-
-# 4) Colores
-color_seq = px.colors.qualitative.Plotly
-if len(color_seq) < len(pie_df):
-    times = (len(pie_df) // len(color_seq)) + 1
-    color_seq = (color_seq * times)[:len(pie_df)]
-
-# 5) Graficar usando la columna NUMÉRICA
-fig = px.pie(
-    pie_df,
-    names="bucket",
-    values="valor_num",  # <- clave: aseguramos tipo float
-    hole=0.35,
-    color="bucket",
-    color_discrete_sequence=color_seq
-)
-fig.update_traces(
-    textposition="inside",
-    texttemplate="%{label}<br>%{percent:.1%}",
-    hovertemplate="<b>%{label}</b><br>Valor: %{value:,.2f} USD<br>%{percent}",
-    sort=False
-)
-fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=False)
+pie_options = {
+    "color": echarts_colors,
+    "tooltip": {
+        "trigger": "item",
+        "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"
+    },
+    "series": [
+        {
+            "name": "Buckets",
+            "type": "pie",
+            "radius": ["40%", "70%"],   # donut
+            "avoidLabelOverlap": True,
+            "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
+            "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
+            "labelLine": {"show": False},
+            "data": pie_data,
+            "emphasis": {"scale": True, "scaleSize": 6}
+        }
+    ],
+    "legend": {"show": False}
+}
 
 st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
-clicked_points = plotly_events(fig, click_event=True, hover_event=False, select_event=False, key=f"pie_{filters_version}")
+# Capturamos el evento click: retorna dict con 'name' y 'value'
+click_ret = st_echarts(
+    options=pie_options,
+    height="380px",
+    key=f"pie_{filters_version}",
+    events={"click": "function(params) { return params; }"}
+)
 
 clicked_bucket = None
-if clicked_points:
-    pt = clicked_points[0]
-    pn = pt.get("pointNumber")
-    if pn is not None and 0 <= pn < len(pie_df):
-        clicked_bucket = pie_df.loc[pn, "bucket"]
-
-# ====== Verificación rápida (opcional) ======
-with st.expander("Ver totales por bucket (debug)"):
-    debug_df = pie_df[["bucket", "valor_num"]].copy()
-    total = debug_df["valor_num"].sum()
-    if total > 0:
-        debug_df["%"] = debug_df["valor_num"] / total
-    st.dataframe(debug_df, use_container_width=True, hide_index=True)
+if isinstance(click_ret, dict) and "name" in click_ret:
+    clicked_bucket = click_ret["name"]
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
