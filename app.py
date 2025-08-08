@@ -38,7 +38,6 @@ REQUIRED_COLUMNS = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
-
 metric_cols = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
@@ -147,11 +146,10 @@ for col in metric_cols:
 st.markdown(cards_html, unsafe_allow_html=True)
 
 # ================== PIE (ECharts) ==================
-# Totales por columna y proporción respecto al total sumado de columnas
+# Totales por columna (suma de columnas) -> proporción vs total
 col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
 pie_data = [{"name": k, "value": float(v)} for k, v in col_sums.items() if v > 0]
 
-# Paleta cualitativa (ECharts)
 echarts_colors = [
     "#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
     "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC", "#2f4554", "#61a0a8"
@@ -159,38 +157,32 @@ echarts_colors = [
 
 pie_options = {
     "color": echarts_colors,
-    "tooltip": {
-        "trigger": "item",
-        "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"
-    },
-    "series": [
-        {
-            "name": "Buckets",
-            "type": "pie",
-            "radius": ["40%", "70%"],   # donut
-            "avoidLabelOverlap": True,
-            "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
-            "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
-            "labelLine": {"show": False},
-            "data": pie_data,
-            "emphasis": {"scale": True, "scaleSize": 6}
-        }
-    ],
-    "legend": {"show": False}
+    "tooltip": {"trigger": "item", "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"},
+    "legend": {"show": False},
+    "series": [{
+        "name": "Buckets",
+        "type": "pie",
+        "radius": ["40%", "70%"],   # donut
+        "selectedMode": "single",   # <- ayuda a UX de selección
+        "avoidLabelOverlap": True,
+        "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
+        "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
+        "labelLine": {"show": False},
+        "data": pie_data,
+        "emphasis": {"scale": True, "scaleSize": 8}
+    }]
 }
 
 st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
-# Capturamos el evento click: retorna dict con 'name' y 'value'
+# DEVOLVER JSON SIMPLE {name, value} (no el params completo)
 click_ret = st_echarts(
     options=pie_options,
     height="380px",
     key=f"pie_{filters_version}",
-    events={"click": "function(params) { return params; }"}
+    events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
 )
 
-clicked_bucket = None
-if isinstance(click_ret, dict) and "name" in click_ret:
-    clicked_bucket = click_ret["name"]
+clicked_bucket = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
