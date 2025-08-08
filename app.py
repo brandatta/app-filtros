@@ -58,7 +58,7 @@ st.markdown(
     <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.75rem;">
         <h1 style="font-size:1.5rem; margin:0;">Draft Biosidus Aging</h1>
         <img src="data:image/png;base64,{logo_base64}" alt="Logo"
-             style="height:50px; position: absolute; right: -20px; top: 13px;">
+             style="height:50px; position: absolute; right: -25px; top: 13px;">
     </div>
     """,
     unsafe_allow_html=True
