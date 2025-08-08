@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# Ocultar cabecera, menú y footer de Streamlit + tarjetas compactas
+# Ocultar cabecera, menú y footer de Streamlit + tarjetas compactas + pequeños tweaks de legibilidad
 st.markdown(
     """
     <style>
@@ -28,6 +28,9 @@ st.markdown(
       }
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
+
+      /* Encabezados de las mini-tablas */
+      .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -128,7 +131,7 @@ with st.sidebar:
 # ================== BASE PARA TARJETAS ==================
 df_for_metrics = df if sel_KUNNR_TXT == "Todos" else df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 
-# ================== TARJETAS ==================
+# ================== TARJETAS (compactas, en millones; nombres originales) ==================
 def format_usd_millions(x: float) -> str:
     millones = x / 1_000_000
     return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -215,30 +218,48 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TABLAS RESUMEN ==================
-def summarize_in_millions(frame: pd.DataFrame, group_col: str) -> pd.DataFrame:
+# ================== TRES TABLAS ALINEADAS Y LEGIBLES (misma altura que el pie) ==================
+def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
     tmp["_TOTAL_USD_NUM"] = tmp[num_cols].sum(axis=1)
-    out = tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"].sum().reset_index()
+    out = (
+        tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"]
+           .sum()
+           .sort_values(ascending=False)
+           .reset_index()
+    )
+    out.rename(columns={group_col: label}, inplace=True)
     out["Total (M USD)"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
-    return out[[group_col, "Total (M USD)"]].sort_values(by="Total (M USD)", ascending=False)
+    return out[[label, "Total (M USD)"]]
 
 with col_tables:
     t1, t2, t3 = st.columns(3)
 
     with t1:
-        st.subheader("Mercado")
-        st.dataframe(summarize_in_millions(df_filtered, "VKORG_TXT"), use_container_width=True, hide_index=True, height=220)
+        st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
+        st.dataframe(
+            summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado"),
+            use_container_width=True, hide_index=True, height=360
+        )
 
     with t2:
-        st.subheader("Canal")
-        st.dataframe(summarize_in_millions(df_filtered, "VTWEG_TXT"), use_container_width=True, hide_index=True, height=220)
+        st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
+        st.dataframe(
+            summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal"),
+            use_container_width=True, hide_index=True, height=360
+        )
 
     with t3:
-        st.subheader("Cliente")
-        st.dataframe(summarize_in_millions(df_filtered, "KUNNR_TXT"), use_container_width=True, hide_index=True, height=220)
+        st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
+        st.dataframe(
+            summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente"),
+            use_container_width=True, hide_index=True, height=360
+        )
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
-st.dataframe(df_filtered.drop(columns=drop_aux, errors="ignore"), use_container_width=True, hide_index=True)
+st.dataframe(
+    df_filtered.drop(columns=drop_aux, errors="ignore"),
+    use_container_width=True, hide_index=True
+)
