@@ -99,7 +99,7 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}_{filters_version}"
+        key = f"sel_{colname}_{filters_version}"  # key versionada para resetear a "Todos"
         return st.selectbox(label, options=options, index=0, key=key)
 
     sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
@@ -125,7 +125,7 @@ for col in metric_cols:
 def format_usd(x: float) -> str:
     return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# Base para tarjetas (y pie): mismas reglas que las tarjetas
+# Base para tarjetas (y pie): total o por Cliente si está filtrado
 if sel_KUNNR_TXT != "Todos":
     df_for_metrics = df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 else:
@@ -149,11 +149,19 @@ pie_df = pd.DataFrame({
     "bucket": metric_cols,
     "valor": [df_for_metrics[f"_{c}_NUM"].sum() for c in metric_cols]
 })
+
+# Calcular proporción respecto al total de todos los buckets
+total_valor = pie_df["valor"].sum()
+if total_valor > 0:
+    pie_df["proporcion"] = pie_df["valor"] / total_valor
+else:
+    pie_df["proporcion"] = 0.0
+
+# Mostrar solo sectores con valor > 0
 pie_df = pie_df[pie_df["valor"] > 0].reset_index(drop=True)
 
 # Colores distintos por porción
-color_seq = px.colors.qualitative.Plotly  # paleta cualitativa
-# Si hay más buckets que colores, repetimos la paleta
+color_seq = px.colors.qualitative.Plotly
 if len(color_seq) < len(pie_df):
     times = (len(pie_df) // len(color_seq)) + 1
     color_seq = (color_seq * times)[:len(pie_df)]
@@ -161,12 +169,11 @@ if len(color_seq) < len(pie_df):
 fig = px.pie(
     pie_df,
     names="bucket",
-    values="valor",
+    values="valor",  # Plotly calculará % = valor / sum(valor) -> coincide con proporción
     hole=0.35,
     color="bucket",
     color_discrete_sequence=color_seq
 )
-# Texto dentro de cada porción y hover claro
 fig.update_traces(
     textposition="inside",
     texttemplate="%{label}<br>%{percent:.1%}",
@@ -189,7 +196,7 @@ clicked_points = plotly_events(
 
 clicked_bucket = None
 if clicked_points:
-    # Tomamos el primer punto clickeado y lo mapeamos por pointNumber al bucket en pie_df
+    # Mapeo robusto por pointNumber -> pie_df
     pt = clicked_points[0]
     pn = pt.get("pointNumber")
     if pn is not None and 0 <= pn < len(pie_df):
