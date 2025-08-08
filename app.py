@@ -54,7 +54,7 @@ def load_excel(path_or_buffer):
     return df
 
 df = None
-default_path = Path("AGING AL 2025-01-28.xlsx")  # poné el archivo en la misma carpeta si querés carga automática
+default_path = Path("AGING AL 2025-01-28.xlsx")  # archivo por defecto si está en la misma carpeta
 
 with st.sidebar:
     st.markdown("**Archivo**")
@@ -81,6 +81,12 @@ if missing:
     st.error(f"Faltan columnas requeridas en el Excel: {', '.join(missing)}")
     st.stop()
 
+# ================== CONTROL DE RESETEO SIN st.rerun() ==================
+# Cambiamos la "versión" de las claves de widgets para limpiarlos sin tocar sus session_state
+if "filters_version" not in st.session_state:
+    st.session_state["filters_version"] = 0
+filters_version = st.session_state["filters_version"]
+
 # ================== SIDEBAR DE FILTROS ==================
 with st.sidebar:
     st.markdown("**Filtros**")
@@ -92,24 +98,20 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}"
-        if key not in st.session_state:
-            st.session_state[key] = "Todos"
-        return st.selectbox(label, options=options, index=options.index(st.session_state[key]), key=key)
+        # Key incluye la versión para resetear a "Todos" (index=0) cuando cambia
+        key = f"sel_{colname}_{filters_version}"
+        return st.selectbox(label, options=options, index=0, key=key)
 
     sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
-    sel_KUNNR_TXT = dropdown("Cliente", "KUNNR_TXT")
+    sel_KUNNR_TXT = dropdown("Cliente",  "KUNNR_TXT")
     sel_PRCTR     = dropdown("Cen.Ben",  "PRCTR")
     sel_VKORG_TXT = dropdown("Mercado",  "VKORG_TXT")
     sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
-    # Botón para limpiar filtros
-    if st.button("Limpiar filtros", use_container_width=True):
-        st.session_state["sel_BUKRS_TXT"] = "Todos"
-        st.session_state["sel_KUNNR_TXT"] = "Todos"
-        st.session_state["sel_PRCTR"]     = "Todos"
-        st.session_state["sel_VKORG_TXT"] = "Todos"
-        st.session_state["sel_VTWEG_TXT"] = "Todos"
+    # Botón para limpiar filtros -> solo incrementa la versión (no escribe claves de widgets, no usa rerun)
+    if st.button("🧹 Limpiar filtros", use_container_width=True):
+        st.session_state["filters_version"] += 1
+        # No llamamos a st.rerun(): el clic ya provoca un rerun natural y se crearán nuevos keys con index=0
 
 # ================== CALCULAR Y MOSTRAR TARJETAS ==================
 metric_cols = [
@@ -157,8 +159,11 @@ df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
 
 # ================== TABLA ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
-st.dataframe(df_filtered.drop(columns=drop_aux, errors="ignore"),
-             use_container_width=True, hide_index=True)
+st.dataframe(
+    df_filtered.drop(columns=drop_aux, errors="ignore"),
+    use_container_width=True,
+    hide_index=True
+)
 
 # ================== DESCARGAS ==================
 col1, col2 = st.columns(2)
