@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+import plotly.express as px
+from streamlit_plotly_events import plotly_events
 
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
@@ -82,7 +84,6 @@ if missing:
     st.stop()
 
 # ================== CONTROL DE RESETEO SIN st.rerun() ==================
-# Cambiamos la "versión" de las claves de widgets para limpiarlos sin tocar sus session_state
 if "filters_version" not in st.session_state:
     st.session_state["filters_version"] = 0
 filters_version = st.session_state["filters_version"]
@@ -98,7 +99,6 @@ with st.sidebar:
         except Exception:
             pass
         options = ["Todos"] + vals.astype(str).tolist()
-        # Key incluye la versión para resetear a "Todos" (index=0) cuando cambia
         key = f"sel_{colname}_{filters_version}"
         return st.selectbox(label, options=options, index=0, key=key)
 
@@ -108,30 +108,30 @@ with st.sidebar:
     sel_VKORG_TXT = dropdown("Mercado",  "VKORG_TXT")
     sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
 
-    # Botón para limpiar filtros -> solo incrementa la versión (no escribe claves de widgets, no usa rerun)
+    # Botón para limpiar filtros (sin st.rerun)
     if st.button("🧹 Limpiar filtros", use_container_width=True):
-        st.session_state["filters_version"] += 1
-        # No llamamos a st.rerun(): el clic ya provoca un rerun natural y se crearán nuevos keys con index=0
+        st.session_state["filters_version"] += 1  # cambia las keys de los widgets -> vuelven a "Todos"
 
-# ================== CALCULAR Y MOSTRAR TARJETAS ==================
+# ================== LISTA DE MÉTRICAS / TARJETAS ==================
 metric_cols = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
 
-# Asegurar columnas numéricas (por si vienen como texto)
+# Asegurar columnas numéricas
 for col in metric_cols:
     df[f"_{col}_NUM"] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
 def format_usd(x: float) -> str:
     return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# Base para tarjetas: si hay Cliente seleccionado, suma por ese cliente; si no, suma total
+# Base para tarjetas (y pie): mismas reglas que las tarjetas
 if sel_KUNNR_TXT != "Todos":
     df_for_metrics = df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
 else:
     df_for_metrics = df
 
+# ================== TARJETAS ==================
 cards_html = ""
 for col in metric_cols:
     val = df_for_metrics[f"_{col}_NUM"].sum()
@@ -142,6 +142,33 @@ for col in metric_cols:
     </div>
     """
 st.markdown(cards_html, unsafe_allow_html=True)
+
+# ================== PIE CHART INTERACTIVO ==================
+# Construir dataframe para el pie con los mismos totales que las tarjetas
+pie_df = pd.DataFrame({
+    "bucket": metric_cols,
+    "valor": [df_for_metrics[f"_{c}_NUM"].sum() for c in metric_cols]
+})
+
+# Evitar sectores cero para mejor UX (igual el click funcionaría)
+pie_df = pie_df[pie_df["valor"] > 0]
+
+fig = px.pie(
+    pie_df,
+    names="bucket",
+    values="valor",
+    hole=0.35
+)
+fig.update_traces(textposition="inside", texttemplate="%{label}<br>%{percent:.1%}")
+
+st.caption("Distribución por buckets (mismos valores que las tarjetas)")
+clicked = plotly_events(fig, click_event=True, hover_event=False, select_event=False, key=f"pie_{filters_version}")
+
+clicked_bucket = None
+if clicked:
+    # streamlit-plotly-events retorna una lista de puntos clickeados
+    # Tomamos el primero; 'label' o 'pointNumber' pueden usarse. Usamos 'label' = bucket.
+    clicked_bucket = clicked[0].get("label") or clicked[0].get("x")  # fallback
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
@@ -156,6 +183,11 @@ df_filtered = apply_eq_filter(df_filtered, "KUNNR_TXT", sel_KUNNR_TXT)
 df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
 df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
 df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
+
+# Si se clickeó un sector del pie -> mostrar solo filas con > 0 en esa columna (respetando los filtros actuales)
+if clicked_bucket in metric_cols:
+    df_filtered = df_filtered[pd.to_numeric(df_filtered[clicked_bucket], errors="coerce").fillna(0) > 0]
+    st.success(f"Filtrado por sector: {clicked_bucket}")
 
 # ================== TABLA ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
