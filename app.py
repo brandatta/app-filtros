@@ -47,6 +47,23 @@ st.markdown(
       .table-compact th:first-child, .table-compact td:first-child { width: 68%; }
       .table-compact th:last-child, .table-compact td:last-child { width: 32%; text-align: right; }
       .table-compact td { word-break: break-word; white-space: normal; }
+
+      /* Contenedor flex para 3 rectángulos iguales */
+      .three-cards {
+          display: flex;
+          gap: 15px;
+          width: 100%;
+      }
+      .three-cards > .card {
+          flex: 1 1 0;
+          border: 1px solid rgba(0,0,0,0.05);
+          border-radius: 8px;
+          padding: 6px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+          display: flex;
+          flex-direction: column;
+          min-width: 0; /* evita overflow por textos largos */
+      }
     </style>
     """,
     unsafe_allow_html=True
@@ -236,7 +253,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TABLAS MERCADO / CANAL / CLIENTE ==================
+# ================== TABLAS MERCADO / CANAL / CLIENTE (rectángulos iguales) ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -270,16 +287,23 @@ def render_table_html(df_small: pd.DataFrame) -> str:
     return "".join(html)
 
 with col_tables:
-    t1, t2, t3 = st.columns([0.9, 0.9, 0.9])
-    with t1:
-        st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")), unsafe_allow_html=True)
-    with t2:
-        st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")), unsafe_allow_html=True)
-    with t3:
-        st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")), unsafe_allow_html=True)
+    st.markdown(
+        '<div class="three-cards">'
+        + '<div class="card">'
+            '<div class="mini-title">Mercado</div>'
+            f'{render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado"))}'
+          '</div>'
+        + '<div class="card">'
+            '<div class="mini-title">Canal</div>'
+            f'{render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal"))}'
+          '</div>'
+        + '<div class="card">'
+            '<div class="mini-title">Cliente</div>'
+            f'{render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente"))}'
+          '</div>'
+        + '</div>',
+        unsafe_allow_html=True
+    )
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
