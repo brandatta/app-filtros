@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# Ocultar cabecera, menú y footer de Streamlit
+# Ocultar cabecera, menú y footer de Streamlit + tarjetas compactas
 st.markdown(
     """
     <style>
@@ -14,19 +14,20 @@ st.markdown(
       #MainMenu {visibility: hidden;}
       footer {visibility: hidden;}
       .block-container { padding-top: 0.5rem; }
-      /* Tarjetas métricas */
+
+      /* Tarjetas métricas (compactas) */
       .metric-card {
-          border-radius: 16px;
-          padding: 14px 18px;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-          border: 1px solid rgba(0,0,0,0.06);
+          border-radius: 12px;
+          padding: 8px 10px;
+          box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+          border: 1px solid rgba(0,0,0,0.05);
           display: inline-block;
-          margin: 0 10px 10px 0;
-          min-width: 150px;
+          margin: 0 6px 6px 0;
+          min-width: 120px;
           vertical-align: top;
       }
-      .metric-label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
-      .metric-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+      .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
+      .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
     </style>
     """,
     unsafe_allow_html=True
@@ -131,9 +132,10 @@ if sel_KUNNR_TXT != "Todos":
 else:
     df_for_metrics = df
 
-# ================== TARJETAS (mantienen nombres originales) ==================
-def format_usd(x: float) -> str:
-    return f"US$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+# ================== TARJETAS (compactas, en millones) ==================
+def format_usd_millions(x: float) -> str:
+    millones = x / 1_000_000
+    return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
 
 cards_html = ""
 for col in metric_cols:
@@ -141,7 +143,7 @@ for col in metric_cols:
     cards_html += f"""
     <div class="metric-card">
         <div class="metric-label">{col}</div>
-        <div class="metric-value">{format_usd(val)}</div>
+        <div class="metric-value">{format_usd_millions(val)}</div>
     </div>
     """
 st.markdown(cards_html, unsafe_allow_html=True)
@@ -190,7 +192,7 @@ pie_options = {
 st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
 click_ret = st_echarts(
     options=pie_options,
-    height="380px",
+    height="360px",
     key=f"pie_{filters_version}",
     events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
 )
