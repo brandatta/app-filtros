@@ -132,7 +132,7 @@ if sel_KUNNR_TXT != "Todos":
 else:
     df_for_metrics = df
 
-# ================== TARJETAS (compactas, en millones) ==================
+# ================== TARJETAS (compactas, en millones; nombres originales) ==================
 def format_usd_millions(x: float) -> str:
     millones = x / 1_000_000
     return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -148,17 +148,18 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE (ECharts) SOLO EN ESPAÑOL ==================
+# ================== PIE (ECharts) con etiquetas cortas ==================
+# Mapa SOLO del pie -> etiquetas en español cortas
 label_map = {
     "NOT_DUE_AMOUNT_USD": "No vencido",
-    "DUE_30_DAYS_USD": "Vencido 30 días",
-    "DUE_60_DAYS_USD": "Vencido 60 días",
-    "DUE_90_DAYS_USD": "Vencido 90 días",
-    "DUE_120_DAYS_USD": "Vencido 120 días",
-    "DUE_180_DAYS_USD": "Vencido 180 días",
-    "DUE_270_DAYS_USD": "Vencido 270 días",
-    "DUE_360_DAYS_USD": "Vencido 360 días",
-    "DUE_OVER_360_DAYS_USD": "Vencido +360 días",
+    "DUE_30_DAYS_USD": "30",
+    "DUE_60_DAYS_USD": "60",
+    "DUE_90_DAYS_USD": "90",
+    "DUE_120_DAYS_USD": "120",
+    "DUE_180_DAYS_USD": "180",
+    "DUE_270_DAYS_USD": "270",
+    "DUE_360_DAYS_USD": "360",
+    "DUE_OVER_360_DAYS_USD": "+360",
 }
 reverse_label_map = {v: k for k, v in label_map.items()}
 
