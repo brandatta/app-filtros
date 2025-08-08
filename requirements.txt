@@ -2,5 +2,4 @@ streamlit
 pandas
 openpyxl
 xlsxwriter
-plotly
-streamlit-plotly-events
+streamlit-echarts
