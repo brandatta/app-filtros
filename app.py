@@ -29,9 +29,10 @@ st.markdown(
       .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
       .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-      /* Mini tablas: sin scroll horizontal, columnas fijas y wrap */
-      .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
-      .table-box { height: 360px; overflow-y: auto; overflow-x: hidden; } /* altura fija */
+      /* ===== Mini-tablas: wrapper con alto fijo, sin scroll horizontal ===== */
+      .mini-wrap { height: 380px; display: flex; flex-direction: column; }
+      .mini-title { font-weight: 600; margin: 0 0 6px 2px; line-height: 20px; height: 20px; }
+      .table-box { flex: 1; height: auto; overflow-y: auto; overflow-x: hidden; }
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
           padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
@@ -51,7 +52,6 @@ REQUIRED_COLUMNS = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
-
 metric_cols = [
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
@@ -176,7 +176,7 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Layout: más ancho para tablas (sin scroll horizontal)
+# Layout: más ancho para tablas
 col_chart, col_tables = st.columns([3, 2.2])
 
 with col_chart:
@@ -228,7 +228,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TRES TABLAS (HTML) MÁS ANCHAS, CUADRADAS, SIN SCROLL HORIZONTAL ==================
+# ================== RESÚMENES ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -267,14 +267,17 @@ def render_table_html(df_small: pd.DataFrame) -> str:
 with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown('<div class="mini-title">Mercado</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")), unsafe_allow_html=True)
+        st.markdown('<div class="mini-wrap"><div class="mini-title">Mercado</div>' +
+                    render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
+                    '</div>', unsafe_allow_html=True)
     with t2:
-        st.markdown('<div class="mini-title">Canal</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")), unsafe_allow_html=True)
+        st.markdown('<div class="mini-wrap"><div class="mini-title">Canal</div>' +
+                    render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
+                    '</div>', unsafe_allow_html=True)
     with t3:
-        st.markdown('<div class="mini-title">Cliente</div>', unsafe_allow_html=True)
-        st.markdown(render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")), unsafe_allow_html=True)
+        st.markdown('<div class="mini-wrap"><div class="mini-title">Cliente</div>' +
+                    render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
+                    '</div>', unsafe_allow_html=True)
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
