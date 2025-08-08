@@ -118,7 +118,7 @@ metric_cols = [
     "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
 ]
 
-# Asegurar columnas numéricas
+# Asegurar columnas numéricas (por si vienen como texto)
 for col in metric_cols:
     df[f"_{col}_NUM"] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
@@ -144,31 +144,56 @@ for col in metric_cols:
 st.markdown(cards_html, unsafe_allow_html=True)
 
 # ================== PIE CHART INTERACTIVO ==================
-# Construir dataframe para el pie con los mismos totales que las tarjetas
+# DF con los totales (mismos que tarjetas)
 pie_df = pd.DataFrame({
     "bucket": metric_cols,
     "valor": [df_for_metrics[f"_{c}_NUM"].sum() for c in metric_cols]
 })
+pie_df = pie_df[pie_df["valor"] > 0].reset_index(drop=True)
 
-# Evitar sectores cero para mejor UX (igual el click funcionaría)
-pie_df = pie_df[pie_df["valor"] > 0]
+# Colores distintos por porción
+color_seq = px.colors.qualitative.Plotly  # paleta cualitativa
+# Si hay más buckets que colores, repetimos la paleta
+if len(color_seq) < len(pie_df):
+    times = (len(pie_df) // len(color_seq)) + 1
+    color_seq = (color_seq * times)[:len(pie_df)]
 
 fig = px.pie(
     pie_df,
     names="bucket",
     values="valor",
-    hole=0.35
+    hole=0.35,
+    color="bucket",
+    color_discrete_sequence=color_seq
 )
-fig.update_traces(textposition="inside", texttemplate="%{label}<br>%{percent:.1%}")
+# Texto dentro de cada porción y hover claro
+fig.update_traces(
+    textposition="inside",
+    texttemplate="%{label}<br>%{percent:.1%}",
+    hovertemplate="<b>%{label}</b><br>Valor: %{value:,.2f} USD<br>%{percent}",
+    sort=False
+)
+fig.update_layout(
+    margin=dict(l=0, r=0, t=0, b=0),
+    showlegend=False,
+)
 
-st.caption("Distribución por buckets (mismos valores que las tarjetas)")
-clicked = plotly_events(fig, click_event=True, hover_event=False, select_event=False, key=f"pie_{filters_version}")
+st.caption("Distribución por buckets (clickeá una porción para filtrar la tabla de abajo)")
+clicked_points = plotly_events(
+    fig,
+    click_event=True,
+    hover_event=False,
+    select_event=False,
+    key=f"pie_{filters_version}"
+)
 
 clicked_bucket = None
-if clicked:
-    # streamlit-plotly-events retorna una lista de puntos clickeados
-    # Tomamos el primero; 'label' o 'pointNumber' pueden usarse. Usamos 'label' = bucket.
-    clicked_bucket = clicked[0].get("label") or clicked[0].get("x")  # fallback
+if clicked_points:
+    # Tomamos el primer punto clickeado y lo mapeamos por pointNumber al bucket en pie_df
+    pt = clicked_points[0]
+    pn = pt.get("pointNumber")
+    if pn is not None and 0 <= pn < len(pie_df):
+        clicked_bucket = pie_df.loc[pn, "bucket"]
 
 # ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
@@ -184,7 +209,7 @@ df_filtered = apply_eq_filter(df_filtered, "PRCTR",     sel_PRCTR)
 df_filtered = apply_eq_filter(df_filtered, "VKORG_TXT", sel_VKORG_TXT)
 df_filtered = apply_eq_filter(df_filtered, "VTWEG_TXT", sel_VTWEG_TXT)
 
-# Si se clickeó un sector del pie -> mostrar solo filas con > 0 en esa columna (respetando los filtros actuales)
+# Si se clickeó una porción -> mostrar filas con valor > 0 en ese bucket (respetando filtros)
 if clicked_bucket in metric_cols:
     df_filtered = df_filtered[pd.to_numeric(df_filtered[clicked_bucket], errors="coerce").fillna(0) > 0]
     st.success(f"Filtrado por sector: {clicked_bucket}")
