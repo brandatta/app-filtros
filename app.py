@@ -6,6 +6,12 @@ from streamlit_echarts import st_echarts
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
+# Título principal (arriba del header)
+st.markdown(
+    "<h1 style='text-align:center; margin: 0.25rem 0 0.75rem;'>draft biosidus aging</h1>",
+    unsafe_allow_html=True
+)
+
 # Ocultar cabecera/menú/footer + estilos para tarjetas y tablas rectangulares
 st.markdown(
     """
@@ -203,7 +209,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-col_chart, col_tables = st.columns([2, 3])  # más ancho para las tablas
+# Layout: más ancho para tablas
+col_chart, col_tables = st.columns([2, 3])  # <- tablas más anchas
 
 with col_chart:
     st.caption("Distribución por buckets")
