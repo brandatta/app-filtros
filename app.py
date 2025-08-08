@@ -2,17 +2,38 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from streamlit_echarts import st_echarts
+import base64
 
 # ================== CONFIG ==================
 st.set_page_config(page_title="Aging - Filtros", layout="wide")
 
-# Título principal (arriba del header)
+# ---- Título y logo (arriba, logo esquina superior derecha) ----
+def get_base64_image(image_path: str) -> str:
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+# Si el archivo está en el repo, dejá el mismo nombre:
+LOGO_FILE = "logorelleno (1).png"
+logo_b64 = ""
+try:
+    if Path(LOGO_FILE).exists():
+        logo_b64 = get_base64_image(LOGO_FILE)
+except Exception:
+    logo_b64 = ""
+
 st.markdown(
-    "<h1 style='text-align:center; font-size:1.5rem; margin: 0.25rem 0 0.75rem;'>Draft Biosidus Aging</h1>",
+    f"""
+    <div style="position: relative; margin: 0.25rem 0 0.75rem;">
+        <h1 style="text-align:center; font-size:1.5rem; margin:0;">
+            Draft Biosidus Aging
+        </h1>
+        {'<img src="data:image/png;base64,' + logo_b64 + '" alt="Logo" style="position:absolute; right:0; top:0; height:50px;">' if logo_b64 else ''}
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
-# Ocultar cabecera/menú/footer + estilos para tarjetas y tablas rectangulares
+# ---- Estilos globales (oculto header Streamlit, tarjetas y tablas rectangulares) ----
 st.markdown(
     """
     <style>
@@ -78,7 +99,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Columnas requeridas
+# ================== Columnas requeridas ==================
 REQUIRED_COLUMNS = [
     "BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT",
     "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
@@ -142,7 +163,7 @@ def smart_to_numeric(s: pd.Series) -> pd.Series:
 for col in metric_cols:
     df[f"_{col}_NUM"] = smart_to_numeric(df[col])
 
-# ================== CONTROL DE RESETEO ==================
+# ================== CONTROL DE RESETEO (sin rerun) ==================
 if "filters_version" not in st.session_state:
     st.session_state["filters_version"] = 0
 filters_version = st.session_state["filters_version"]
@@ -189,7 +210,7 @@ for col in metric_cols:
     """
 st.markdown(cards_html, unsafe_allow_html=True)
 
-# ================== PIE CHART ==================
+# ================== PIE CHART (clic para filtrar) ==================
 label_map = {
     "NOT_DUE_AMOUNT_USD": "No vencido",
     "DUE_30_DAYS_USD": "30",
@@ -209,8 +230,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Layout: más ancho para tablas
-col_chart, col_tables = st.columns([2, 3])  # <- tablas más anchas
+# Más ancho para tablas (2,3)
+col_chart, col_tables = st.columns([2, 3])
 
 with col_chart:
     st.caption("Distribución por buckets")
@@ -238,7 +259,7 @@ with col_chart:
     )
     clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
 
-# ================== APLICAR FILTROS ==================
+# ================== APLICAR FILTROS A LA TABLA ==================
 df_filtered = df.copy()
 
 def apply_eq_filter(frame, column, selected_value):
@@ -261,7 +282,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TRES TABLAS RECTANGULARES ==================
+# ================== RESÚMENES (tablas rectangulares, mismo alto) ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
@@ -297,17 +318,26 @@ def render_table_html(df_small: pd.DataFrame) -> str:
 with col_tables:
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown('<div class="mini-rect"><div class="mini-title">Mercado</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Mercado</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t2:
-        st.markdown('<div class="mini-rect"><div class="mini-title">Canal</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Canal</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
     with t3:
-        st.markdown('<div class="mini-rect"><div class="mini-title">Cliente</div>' +
-                    render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
-                    '</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mini-rect"><div class="mini-title">Cliente</div>' +
+            render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente")) +
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 # ================== TABLA DETALLE ==================
 drop_aux = [f"_{col}_NUM" for col in metric_cols]
