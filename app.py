@@ -50,11 +50,11 @@ st.markdown(
 /* Contenedor flex para 3 rectángulos iguales y más anchos */
 .three-cards {
     display: flex;
-    gap: 15px;
+    gap: 10px;          /* menos espacio entre columnas */
     width: 100%;
 }
 .three-cards > .card {
-    flex: 1 1 30%;               /* más ancho que antes */
+    flex: 1 1 32%;      /* ahora más anchas */
     border: 1px solid rgba(0,0,0,0.05);
     border-radius: 8px;
     padding: 6px;
@@ -62,7 +62,7 @@ st.markdown(
     display: flex;
     flex-direction: column;
     min-width: 0;
-    height: 350px;               /* altura fija para las tres */
+    height: 350px;      /* altura fija para las tres */
 }
 
     </style>
