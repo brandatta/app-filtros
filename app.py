@@ -58,7 +58,7 @@ st.markdown(
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 40%;    /* 🔹 Aumentado de 33% a 36% para más ancho */
+          flex: 1 1 45%;    /* 🔹 Aumentado de 33% a 36% para más ancho */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 6px;
