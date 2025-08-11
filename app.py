@@ -47,18 +47,18 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { 
           width: 32%; 
           text-align: right; 
-          white-space: nowrap;
+          white-space: nowrap; /* una sola línea para los montos */
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos iguales y más anchos */
+      /* Tres rectángulos iguales con GRID para evitar margen sobrante a la derecha */
       .three-cards {
-          display: flex;
-          gap: 5px;         /* menos separación */
+          display: grid;
+          grid-template-columns: repeat(3, 1fr); /* 3 columnas iguales */
+          gap: 5px;                               /* menos separación */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 48%;    /* más ancho */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 4px;     /* menos padding interno */
