@@ -47,23 +47,24 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { width: 32%; text-align: right; }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos iguales y más anchos */
-      .three-cards {
-          display: flex;
-          gap: 15px;
-          width: 100%;
-      }
-      .three-cards > .card {
-          flex: 1 1 33%;               /* más ancho */
-          border: 1px solid rgba(0,0,0,0.05);
-          border-radius: 8px;
-          padding: 6px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          height: 350px;               /* altura fija para las tres */
-      }
+/* Contenedor flex para 3 rectángulos iguales y más anchos */
+.three-cards {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+}
+.three-cards > .card {
+    flex: 1 1 30%;               /* más ancho que antes */
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 350px;               /* altura fija para las tres */
+}
+
     </style>
     """,
     unsafe_allow_html=True
