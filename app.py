@@ -34,10 +34,9 @@ st.markdown(
       .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
       .table-box { 
           height: 320px; 
-          min-height: 320px; 
-          max-height: 320px;
           overflow-y: auto; 
           overflow-x: hidden; 
+          flex: 1;
       }
       .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
       .table-compact th, .table-compact td {
@@ -48,21 +47,22 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { width: 32%; text-align: right; }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos iguales */
+      /* Contenedor flex para 3 rectángulos iguales y más anchos */
       .three-cards {
           display: flex;
           gap: 15px;
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 0;
+          flex: 1 1 33%;               /* más ancho */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 6px;
           box-shadow: 0 1px 4px rgba(0,0,0,0.04);
           display: flex;
           flex-direction: column;
-          min-width: 0; /* evita overflow por textos largos */
+          min-width: 0;
+          height: 350px;               /* altura fija para las tres */
       }
     </style>
     """,
@@ -253,7 +253,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TABLAS MERCADO / CANAL / CLIENTE (rectángulos iguales) ==================
+# ================== TABLAS MERCADO / CANAL / CLIENTE (rectángulos iguales y más anchos) ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
