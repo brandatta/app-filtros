@@ -54,11 +54,11 @@ st.markdown(
       /* Contenedor flex para 3 rectángulos iguales y más anchos */
       .three-cards {
           display: flex;
-          gap: 8px;         /* menos separación para ganar ancho útil */
+          gap: 6px;         /* menos separación para ganar ancho útil */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 33%;    /* más ancho, las tres iguales */
+          flex: 1 1 36%;    /* MÁS ANCHO, las tres iguales */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 6px;
