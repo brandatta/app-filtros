@@ -57,7 +57,7 @@ st.markdown(
           grid-template-columns: repeat(3, 1fr);
           gap: 5px;
           width: 100%;
-          margin-right: -12px; /* 🔧 come el padding derecho del contenedor para que Cliente no deje hueco */
+          margin-right: -14px; /* 🔧 come el padding derecho del contenedor para que Cliente no deje hueco */
         }
 
       /* Quitar padding derecho del column que contiene las tablas (si el selector está disponible en tu versión) */
