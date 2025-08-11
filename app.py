@@ -47,26 +47,26 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { 
           width: 32%; 
           text-align: right; 
-          white-space: nowrap; /* una sola línea */
+          white-space: nowrap; /* una sola línea para los montos */
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos más anchos */
+      /* Contenedor flex para 3 rectángulos MÁS anchos y con menos márgenes */
       .three-cards {
           display: flex;
-          gap: 10px;       /* más espacio entre columnas */
+          gap: 5px;         /* menos separación entre columnas */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 40%;   /* más ancho que antes */
+          flex: 1 1 48%;    /* más ancho (flex-shrink mantiene las tres iguales en una fila) */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
-          padding: 6px;
+          padding: 4px;     /* menos padding interno */
           box-shadow: 0 1px 4px rgba(0,0,0,0.04);
           display: flex;
           flex-direction: column;
           min-width: 0;
-          height: 350px;    /* altura igual para las tres */
+          height: 350px;    /* altura fija para las tres */
       }
     </style>
     """,
@@ -207,6 +207,7 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
+# Mantengo la proporción 50/50 entre chart y tablas (ajustable si querés aún más ancho)
 col_chart, col_tables = st.columns([2.5, 2.5])
 
 with col_chart:
