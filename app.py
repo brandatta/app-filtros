@@ -47,18 +47,18 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { 
           width: 32%; 
           text-align: right; 
-          white-space: nowrap; /* una sola línea para los montos */
+          white-space: nowrap;
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos MÁS anchos y con menos márgenes */
+      /* Contenedor flex para 3 rectángulos iguales y más anchos */
       .three-cards {
           display: flex;
-          gap: 5px;         /* menos separación entre columnas */
+          gap: 5px;         /* menos separación */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 48%;    /* más ancho (flex-shrink mantiene las tres iguales en una fila) */
+          flex: 1 1 48%;    /* más ancho */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 4px;     /* menos padding interno */
@@ -207,8 +207,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Mantengo la proporción 50/50 entre chart y tablas (ajustable si querés aún más ancho)
-col_chart, col_tables = st.columns([2.5, 2.5])
+# Más espacio para las tablas
+col_chart, col_tables = st.columns([2.3, 2.7])
 
 with col_chart:
     st.caption("Distribución por buckets")
