@@ -47,18 +47,18 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { 
           width: 32%; 
           text-align: right; 
-          white-space: nowrap; /* una sola línea para los montos */
+          white-space: nowrap; /* una sola línea */
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Contenedor flex para 3 rectángulos iguales y más anchos */
+      /* Contenedor flex para 3 rectángulos más anchos */
       .three-cards {
           display: flex;
-          gap: 6px;         /* menos separación para ganar ancho útil */
+          gap: 10px;       /* más espacio entre columnas */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 36%;    /* más ancho */
+          flex: 1 1 40%;   /* más ancho que antes */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 6px;
@@ -66,7 +66,7 @@ st.markdown(
           display: flex;
           flex-direction: column;
           min-width: 0;
-          height: 350px;    /* altura fija para las tres */
+          height: 350px;    /* altura igual para las tres */
       }
     </style>
     """,
@@ -207,7 +207,6 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Más espacio para las tablas
 col_chart, col_tables = st.columns([2.5, 2.5])
 
 with col_chart:
