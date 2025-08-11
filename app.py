@@ -51,17 +51,24 @@ st.markdown(
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
-      /* Tres rectángulos iguales con GRID para evitar margen sobrante a la derecha */
+      /* Tres rectángulos iguales con GRID */
       .three-cards {
           display: grid;
-          grid-template-columns: repeat(3, 1fr); /* 3 columnas iguales */
-          gap: 5px;                               /* menos separación */
+          grid-template-columns: repeat(3, 1fr);
+          gap: 5px;
           width: 100%;
+          margin-right: -12px; /* 🔧 come el padding derecho del contenedor para que Cliente no deje hueco */
+        }
+
+      /* Quitar padding derecho del column que contiene las tablas (si el selector está disponible en tu versión) */
+      div[data-testid="column"]:has(.three-cards) {
+          padding-right: 0 !important;   /* 🔧 evita margen extra a la derecha del último bloque */
       }
+
       .three-cards > .card {
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
-          padding: 4px;     /* menos padding interno */
+          padding: 4px;
           box-shadow: 0 1px 4px rgba(0,0,0,0.04);
           display: flex;
           flex-direction: column;
@@ -207,7 +214,7 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-# Más espacio para las tablas
+# Columnas: pie chart y tablas
 col_chart, col_tables = st.columns([2.3, 2.7])
 
 with col_chart:
