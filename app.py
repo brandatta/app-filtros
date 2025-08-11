@@ -47,18 +47,18 @@ st.markdown(
       .table-compact th:last-child, .table-compact td:last-child { 
           width: 32%; 
           text-align: right; 
-          white-space: nowrap; /* <- fuerza una sola línea para los montos */
+          white-space: nowrap; /* una sola línea para los montos */
       }
       .table-compact td { word-break: break-word; white-space: normal; }
 
       /* Contenedor flex para 3 rectángulos iguales y más anchos */
       .three-cards {
           display: flex;
-          gap: 8px;         
+          gap: 6px;         /* menos separación para ganar ancho útil */
           width: 100%;
       }
       .three-cards > .card {
-          flex: 1 1 45%;    /* 🔹 Aumentado de 33% a 36% para más ancho */
+          flex: 1 1 36%;    /* más ancho */
           border: 1px solid rgba(0,0,0,0.05);
           border-radius: 8px;
           padding: 6px;
@@ -66,7 +66,7 @@ st.markdown(
           display: flex;
           flex-direction: column;
           min-width: 0;
-          height: 350px;    
+          height: 350px;    /* altura fija para las tres */
       }
     </style>
     """,
@@ -207,7 +207,8 @@ pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sum
 echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
                   "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
 
-col_chart, col_tables = st.columns([3, 2.2])
+# Más espacio para las tablas
+col_chart, col_tables = st.columns([2.5, 2.5])
 
 with col_chart:
     st.caption("Distribución por buckets")
@@ -257,7 +258,7 @@ if clicked_bucket_es in reverse_label_map:
         df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
         st.success(f"Filtrado por sector: {clicked_bucket_es}")
 
-# ================== TABLAS MERCADO / CANAL / CLIENTE (rectángulos iguales y más anchos) ==================
+# ================== TABLAS MERCADO / CANAL / CLIENTE ==================
 def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
     num_cols = [f"_{c}_NUM" for c in metric_cols]
     tmp = frame.copy()
