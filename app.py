@@ -1,325 +1,237 @@
 import streamlit as st
-import pandas as pd
-from pathlib import Path
-from streamlit_echarts import st_echarts
-import base64
+import datetime
+from streamlit.components.v1 import html  # Overlay HTML full-screen
 
-# ================== CONFIG ==================
-st.set_page_config(page_title="Aging - Filtros", layout="wide")
-
-# Ocultar cabecera/menú/footer + estilos
-st.markdown(
-    """
+# ======= Estilos (evita que se corte el título) =======
+st.markdown("""
     <style>
-      header {visibility: hidden;}
-      #MainMenu {visibility: hidden;}
-      footer {visibility: hidden;}
-      .block-container { padding-top: 0.5rem; }
-
-      /* Tarjetas métricas (compactas) */
-      .metric-card {
-          border-radius: 12px;
-          padding: 8px 10px;
-          box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-          border: 1px solid rgba(0,0,0,0.05);
-          display: inline-block;
-          margin: 0 6px 6px 0;
-          min-width: 120px;
-          vertical-align: top;
-      }
-      .metric-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
-      .metric-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
-
-      /* Mini tablas */
-      .mini-title { font-weight: 600; margin: 0 0 6px 2px; }
-      .table-box { 
-          height: 320px; 
-          overflow-y: auto; 
-          overflow-x: hidden; 
-          flex: 1;
-      }
-      .table-compact { width: 100%; table-layout: fixed; border-collapse: collapse; }
-      .table-compact th, .table-compact td {
-          padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top;
-      }
-      .table-compact th { position: sticky; top: 0; background: #fafafa; z-index: 1; }
-      .table-compact th:first-child, .table-compact td:first-child { width: 68%; }
-      .table-compact th:last-child, .table-compact td:last-child { 
-          width: 32%; 
-          text-align: right; 
-          white-space: nowrap; /* una sola línea para los montos */
-      }
-      .table-compact td { word-break: break-word; white-space: normal; }
-
-      /* Tres rectángulos iguales con GRID */
-      .three-cards {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 5px;
-          width: 100%;
-          margin-right: -14px; /* 🔧 come el padding derecho del contenedor para que Cliente no deje hueco */
-        }
-
-      /* Quitar padding derecho del column que contiene las tablas (si el selector está disponible en tu versión) */
-      div[data-testid="column"]:has(.three-cards) {
-          padding-right: 0 !important;   /* 🔧 evita margen extra a la derecha del último bloque */
-      }
-
-      .three-cards > .card {
-          border: 1px solid rgba(0,0,0,0.05);
-          border-radius: 8px;
-          padding: 4px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          height: 350px;    /* altura fija para las tres */
-      }
+    .block-container { padding-top: 3rem; }
+    h1, h2, h3 { font-size: 1.2rem !important; }
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
-# ================== LOGO Y TÍTULO ==================
-def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
+# ======= Inicialización de estado =======
+def init_state():
+    if 'page' not in st.session_state:
+        st.session_state.page = 'linea'
+    if 'data' not in st.session_state:
+        st.session_state.data = {}
 
-logo_base64 = get_base64_image("logorelleno (1).png")
+def reset_to_home():
+    st.session_state.clear()
+    st.session_state.page = 'linea'
+    st.session_state.data = {}
 
-st.markdown(
-    f"""
-    <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.75rem;">
-        <h1 style="font-size:1.5rem; margin:0;">Draft Biosidus Aging</h1>
-        <img src="data:image/png;base64,{logo_base64}" alt="Logo"
-             style="height:50px; position: absolute; right: -25px; top: 13px;">
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+init_state()
 
-# ================== CARGA DE DATOS ==================
-REQUIRED_COLUMNS = [
-    "BUKRS_TXT", "KUNNR_TXT", "PRCTR", "VKORG_TXT", "VTWEG_TXT",
-    "NOT_DUE_AMOUNT_USD", "DUE_30_DAYS_USD", "DUE_60_DAYS_USD", "DUE_90_DAYS_USD",
-    "DUE_120_DAYS_USD", "DUE_180_DAYS_USD", "DUE_270_DAYS_USD", "DUE_360_DAYS_USD", "DUE_OVER_360_DAYS_USD"
-]
-metric_cols = REQUIRED_COLUMNS[5:]
+# ======= Handler de acciones via query params (desde overlay) =======
+params = st.query_params
+if "action" in params:
+    act = params.get("action")
+    if act == "home":
+        reset_to_home()
+        st.query_params.clear()
+    elif act == "ticket":
+        st.session_state.page = "ticket"
+        st.query_params.clear()
 
-@st.cache_data(show_spinner=False)
-def load_excel(path_or_buffer):
-    df = pd.read_excel(path_or_buffer)
-    df.columns = [str(c).strip() for c in df.columns]
-    return df
+def go_to(page):
+    st.session_state.page = page
 
-df = None
-default_path = Path("AGING AL 2025-01-28.xlsx")
+st.title("App Registro de Eventos")
 
-with st.sidebar:
-    st.markdown("**Archivo**")
-    up = st.file_uploader("Subí un .xlsx", type=["xlsx"], label_visibility="collapsed")
-    if up is not None:
-        df = load_excel(up)
+# --- Página: Seleccionar Línea
+if st.session_state.page == "linea":
+    st.header("Selecciona una línea")
+    for num in [1, 2, 3]:
+        if st.button(f"Línea {num}"):
+            st.session_state.data['linea'] = f"Línea {num}"
+            go_to("user")
 
-if df is None and default_path.exists():
-    df = load_excel(default_path)
+# --- Página: Seleccionar Usuario
+elif st.session_state.page == "user":
+    st.header("Selecciona tu usuario")
+    user = st.selectbox("Usuario", ["", "usuario1", "usuario2", "usuario3"])
+    if st.button("Continuar") and user:
+        st.session_state.data['user'] = user
+        go_to("motivo")
 
-if df is None:
-    st.info("Cargá un archivo Excel (xlsx) desde la barra izquierda.")
-    st.stop()
+# --- Página: Seleccionar Motivo
+elif st.session_state.page == "motivo":
+    st.header("Selecciona un motivo")
+    motivos = [
+        "CAMBIO DE LOTE", "ROTURA DE AMPOLLAS", "MAL CIERRE DE ESTUCHES",
+        "OTROS (GENERAL)", "OTROS (CARGADORES)", "OTROS (ESTUCHADORA)",
+        "CHUPETES", "OTROS (KETAN)", "BAJADA DE BLISTER",
+        "PROBLEMA DE TRAZABILIDAD", "BAJADA PROSPECTOS",
+        "ERROR SISTEMA LIXIS", "SISTEMA DE VISIÓN", "CODIFICADO WOLKE",
+        "OTROS (BLISTERA)", "FUERA DE PASO OPERATIVO B",
+        "FALTA DE INSUMOS DE DEPOSITO"
+    ]
+    selected_motivo = st.selectbox("Motivo", [""] + motivos)
+    if selected_motivo and st.button("Continuar"):
+        st.session_state.data['motivo'] = selected_motivo
+        go_to("submotivo")
 
-missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
-if missing:
-    st.error(f"Faltan columnas requeridas: {', '.join(missing)}")
-    st.stop()
+# --- Página: Seleccionar Submotivo
+elif st.session_state.page == "submotivo":
+    st.header("Selecciona un submotivo")
+    for sub in ["Motor", "Sensor", "Panel"]:
+        if st.button(sub):
+            st.session_state.data['submotivo'] = sub
+            go_to("componente")
 
-# ================== PARSEO NUMÉRICO ==================
-def smart_to_numeric(s: pd.Series) -> pd.Series:
-    if pd.api.types.is_numeric_dtype(s):
-        return s.fillna(0)
-    s1 = pd.to_numeric(s, errors="coerce")
-    if s1.isna().mean() > 0.5:
-        s2 = (
-            s.astype(str)
-             .str.replace(r"\.", "", regex=True)
-             .str.replace(",", ".", regex=False)
-        )
-        s1 = pd.to_numeric(s2, errors="coerce")
-    return s1.fillna(0)
+# --- Página: Seleccionar Componente
+elif st.session_state.page == "componente":
+    st.header("Selecciona un componente")
+    for comp in ["PLC", "Tornillo", "Interruptor"]:
+        if st.button(comp):
+            st.session_state.data['componente'] = comp
+            go_to("tipo")
 
-for col in metric_cols:
-    df[f"_{col}_NUM"] = smart_to_numeric(df[col])
+# --- Página: Tipo de Evento
+elif st.session_state.page == "tipo":
+    linea_txt = st.session_state.data.get('linea', 'Línea')
+    st.header(f"Selecciona una opción para {linea_txt}")
+    if st.button("Interrupción"):
+        st.session_state.data["tipo"] = "interrupcion"
+        go_to("form")
+    if st.button("Novedad"):
+        st.session_state.data["tipo"] = "novedad"
+        go_to("form")
 
-# ================== FILTROS ==================
-if "filters_version" not in st.session_state:
-    st.session_state["filters_version"] = 0
-filters_version = st.session_state["filters_version"]
-
-with st.sidebar:
-    st.markdown("**Filtros**")
-
-    def dropdown(label, colname):
-        vals = pd.Series(df[colname].dropna().unique())
-        try:
-            vals = vals.sort_values()
-        except Exception:
-            pass
-        options = ["Todos"] + vals.astype(str).tolist()
-        key = f"sel_{colname}_{filters_version}"
-        return st.selectbox(label, options=options, index=0, key=key)
-
-    sel_BUKRS_TXT = dropdown("Sociedad", "BUKRS_TXT")
-    sel_KUNNR_TXT = dropdown("Cliente",  "KUNNR_TXT")
-    sel_PRCTR     = dropdown("Cen.Ben",  "PRCTR")
-    sel_VKORG_TXT = dropdown("Mercado",  "VKORG_TXT")
-    sel_VTWEG_TXT = dropdown("Canal",    "VTWEG_TXT")
-
-    if st.button("🧹 Limpiar filtros", use_container_width=True):
-        st.session_state["filters_version"] += 1
-
-# ================== TARJETAS ==================
-df_for_metrics = df if sel_KUNNR_TXT == "Todos" else df[df["KUNNR_TXT"].astype(str) == str(sel_KUNNR_TXT)]
-def format_usd_millions(x: float) -> str:
-    millones = x / 1_000_000
-    return f"US$ {millones:,.2f}M".replace(",", "X").replace(".", ",").replace("X", ".")
-
-cards_html = ""
-for col in metric_cols:
-    val = df_for_metrics[f"_{col}_NUM"].sum()
-    cards_html += f"""
-    <div class="metric-card">
-        <div class="metric-label">{col}</div>
-        <div class="metric-value">{format_usd_millions(val)}</div>
-    </div>
-    """
-st.markdown(cards_html, unsafe_allow_html=True)
-
-# ================== PIE CHART ==================
-label_map = {
-    "NOT_DUE_AMOUNT_USD": "No vencido",
-    "DUE_30_DAYS_USD": "30",
-    "DUE_60_DAYS_USD": "60",
-    "DUE_90_DAYS_USD": "90",
-    "DUE_120_DAYS_USD": "120",
-    "DUE_180_DAYS_USD": "180",
-    "DUE_270_DAYS_USD": "270",
-    "DUE_360_DAYS_USD": "360",
-    "DUE_OVER_360_DAYS_USD": "+360",
-}
-reverse_label_map = {v: k for k, v in label_map.items()}
-
-col_sums = {col: float(df_for_metrics[f"_{col}_NUM"].sum()) for col in metric_cols}
-pie_data = [{"name": label_map.get(k, k), "value": float(v)} for k, v in col_sums.items() if v > 0]
-
-echarts_colors = ["#5470C6", "#91CC75", "#FAC858", "#EE6666", "#73C0DE",
-                  "#3BA272", "#FC8452", "#9A60B4", "#EA7CCC"]
-
-# Columnas: pie chart y tablas
-col_chart, col_tables = st.columns([2.3, 2.7])
-
-with col_chart:
-    st.caption("Distribución por buckets")
-    pie_options = {
-        "color": echarts_colors,
-        "tooltip": {"trigger": "item", "formatter": "{b}<br/>Valor: {c} USD<br/>{d}%"},
-        "legend": {"show": False},
-        "series": [{
-            "name": "Buckets",
-            "type": "pie",
-            "radius": ["40%", "70%"],
-            "selectedMode": "single",
-            "avoidLabelOverlap": True,
-            "itemStyle": {"borderRadius": 6, "borderColor": "#fff", "borderWidth": 1},
-            "label": {"show": True, "position": "inside", "formatter": "{b}\n{d}%"},
-            "labelLine": {"show": False},
-            "data": pie_data
-        }]
-    }
-    click_ret = st_echarts(
-        options=pie_options,
-        height="360px",
-        key=f"pie_{filters_version}",
-        events={"click": "function(p){ return {name: p.name, value: p.value}; }"}
-    )
-    clicked_bucket_es = click_ret["name"] if isinstance(click_ret, dict) and "name" in click_ret else None
-
-# ================== APLICAR FILTROS A TABLA DETALLE ==================
-df_filtered = df.copy()
-def apply_eq_filter(frame, column, selected_value):
-    if selected_value != "Todos":
-        return frame[frame[column].astype(str) == str(selected_value)]
-    return frame
-
-for col_f, sel in [
-    ("BUKRS_TXT", sel_BUKRS_TXT),
-    ("KUNNR_TXT", sel_KUNNR_TXT),
-    ("PRCTR", sel_PRCTR),
-    ("VKORG_TXT", sel_VKORG_TXT),
-    ("VTWEG_TXT", sel_VTWEG_TXT)
-]:
-    df_filtered = apply_eq_filter(df_filtered, col_f, sel)
-
-if clicked_bucket_es in reverse_label_map:
-    col_original = reverse_label_map[clicked_bucket_es]
-    if col_original in metric_cols:
-        df_filtered = df_filtered[smart_to_numeric(df_filtered[col_original]) > 0]
-        st.success(f"Filtrado por sector: {clicked_bucket_es}")
-
-# ================== TABLAS MERCADO / CANAL / CLIENTE ==================
-def summarize_in_millions(frame: pd.DataFrame, group_col: str, label: str) -> pd.DataFrame:
-    num_cols = [f"_{c}_NUM" for c in metric_cols]
-    tmp = frame.copy()
-    tmp["_TOTAL_USD_NUM"] = tmp[num_cols].sum(axis=1)
-    out = (
-        tmp.groupby(group_col, dropna=False)["_TOTAL_USD_NUM"]
-           .sum()
-           .sort_values(ascending=False)
-           .reset_index()
-    )
-    out.rename(columns={group_col: label}, inplace=True)
-    out["M USD"] = (out["_TOTAL_USD_NUM"] / 1_000_000).round(2)
-    return out[[label, "M USD"]]
-
-def render_table_html(df_small: pd.DataFrame) -> str:
-    html = ['<div class="table-box"><table class="table-compact">']
-    html.append("<thead><tr>")
-    for col in df_small.columns:
-        html.append(f"<th>{col}</th>")
-    html.append("</tr></thead>")
-    html.append("<tbody>")
-    for _, row in df_small.iterrows():
-        label_val = str(row.iloc[0])
-        num_val = row.iloc[1]
-        if isinstance(num_val, (int, float)):
-            num_txt = f"{num_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        else:
-            num_txt = str(num_val)
-        html.append(f"<tr><td>{label_val}</td><td>{num_txt}</td></tr>")
-    html.append("</tbody></table></div>")
-    return "".join(html)
-
-with col_tables:
+# --- Página: Formulario
+elif st.session_state.page == "form":
+    tipo = st.session_state.data.get("tipo", "interrupcion")
+    linea_txt = st.session_state.data.get('linea', 'Línea')
+    st.header(f"{tipo.title()} - {linea_txt}")
     st.markdown(
-        '<div class="three-cards">'
-        + '<div class="card">'
-            '<div class="mini-title">Mercado</div>'
-            f'{render_table_html(summarize_in_millions(df_filtered, "VKORG_TXT", "Mercado"))}'
-          '</div>'
-        + '<div class="card">'
-            '<div class="mini-title">Canal</div>'
-            f'{render_table_html(summarize_in_millions(df_filtered, "VTWEG_TXT", "Canal"))}'
-          '</div>'
-        + '<div class="card">'
-            '<div class="mini-title">Cliente</div>'
-            f'{render_table_html(summarize_in_millions(df_filtered, "KUNNR_TXT", "Cliente"))}'
-          '</div>'
-        + '</div>',
-        unsafe_allow_html=True
+        f"**Motivo:** {st.session_state.data.get('motivo','-')} | "
+        f"**Submotivo:** {st.session_state.data.get('submotivo','-')} | "
+        f"**Componente:** {st.session_state.data.get('componente','-')}"
     )
 
-# ================== TABLA DETALLE ==================
-drop_aux = [f"_{col}_NUM" for col in metric_cols]
-st.dataframe(
-    df_filtered.drop(columns=drop_aux, errors="ignore"),
-    use_container_width=True, hide_index=True
-)
+    if tipo == "interrupcion":
+        start_time_str = st.text_input("Hora de inicio (HH:MM)", placeholder="Ej: 08:30")
+        end_time_str = st.text_input("Hora de fin (HH:MM)", placeholder="Ej: 09:15")
+    else:
+        start_time_str = end_time_str = None
+
+    comentario = st.text_area("Describe el evento")
+
+    if st.button("Confirmar"):
+        minutos = None
+        if tipo == "interrupcion":
+            try:
+                start_dt = datetime.datetime.strptime(start_time_str, "%H:%M")
+                end_dt = datetime.datetime.strptime(end_time_str, "%H:%M")
+                minutos = int((end_dt - start_dt).total_seconds() / 60)
+            except Exception:
+                st.error("⛔ Formato de hora inválido. Usá HH:MM.")
+                st.stop()
+
+        st.session_state.data.update({
+            "start": start_time_str if tipo == "interrupcion" else None,
+            "end": end_time_str if tipo == "interrupcion" else None,
+            "minutos": minutos,
+            "comentario": comentario,
+            "timestamp": str(datetime.datetime.now())
+        })
+        go_to("ticket")
+
+# --- Página: Ticket
+elif st.session_state.page == "ticket":
+    data = st.session_state.data
+    st.subheader("Ticket")
+    st.write(f"**Fecha y hora:** {data.get('timestamp','-')}")
+    st.write(f"**Línea:** {data.get('linea','-')}")
+    st.write(f"**Motivo:** {data.get('motivo','-')}")
+    st.write(f"**Submotivo:** {data.get('submotivo','-')}")
+    st.write(f"**Componente:** {data.get('componente','-')}")
+    st.write(f"**Minutos:** {data.get('minutos', '-')}")
+    st.write(f"**Comentario:** {data.get('comentario','-')}")
+    st.write(f"**Usuario:** {data.get('user','-')}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Confirmar"):
+            go_to("confirmacion")
+    with col2:
+        if st.button("Cancelar"):
+            reset_to_home()
+
+# --- Página: Confirmación con logo
+elif st.session_state.page == "confirmacion":
+    d = st.session_state.data
+    overlay_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        html, body {{
+          margin: 0; padding: 0; background: #f6f7f9;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+        }}
+        .mp-overlay {{
+          position: fixed; inset: 0; background: #f6f7f9; z-index: 9999;
+          display: grid; place-items: center;
+        }}
+        .mp-card {{
+          width: min(520px, 92vw); background: #fff; border-radius: 16px;
+          box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+          padding: 28px 24px; text-align: center;
+        }}
+        .mp-logo {{
+          width: 140px; margin: 0 auto 16px auto; display: block;
+        }}
+        .mp-title {{ font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }}
+        .mp-subtitle {{ color: #5f6368; font-size: 0.96rem; margin-bottom: 14px; }}
+        .mp-summary {{
+          text-align: left; background: #fafafa; border: 1px solid #e0e0e0;
+          border-radius: 12px; padding: 12px 14px;
+          margin: 14px 0 18px 0; font-size: 0.95rem;
+        }}
+        .mp-kv {{ display: flex; justify-content: space-between; gap: 12px; margin: 4px 0; }}
+        .mp-kv .k {{ color: #616161; }}
+        .mp-kv .v {{ font-weight: 600; text-align: right; }}
+        .mp-actions {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }}
+        .btn {{
+          display: inline-block; text-decoration: none; text-align: center;
+          border-radius: 10px; padding: 10px 14px;
+          border: 1px solid rgba(0,0,0,0.08); background: #fff; color: #111;
+        }}
+        .btn-primary {{ background: #2E7D32; color: #fff; border: none; }}
+        .mp-muted {{ color: #666; font-size: 0.9rem; margin-top: 10px; }}
+      </style>
+    </head>
+    <body>
+      <div class="mp-overlay">
+        <div class="mp-card">
+          <img src="logorelleno.png" class="mp-logo" alt="Logo"> <!-- 👈 usa tu logo -->
+          <div class="mp-title">Evento registrado</div>
+          <div class="mp-subtitle">Ticket generado correctamente</div>
+
+          <div class="mp-summary">
+            <div class="mp-kv"><div class="k">Fecha y hora</div><div class="v">{d.get('timestamp','-')}</div></div>
+            <div class="mp-kv"><div class="k">Línea</div><div class="v">{d.get('linea','-')}</div></div>
+            <div class="mp-kv"><div class="k">Motivo</div><div class="v">{d.get('motivo','-')}</div></div>
+            <div class="mp-kv"><div class="k">Submotivo</div><div class="v">{d.get('submotivo','-')}</div></div>
+            <div class="mp-kv"><div class="k">Componente</div><div class="v">{d.get('componente','-')}</div></div>
+            <div class="mp-kv"><div class="k">Minutos</div><div class="v">{d.get('minutos','-')}</div></div>
+            <div class="mp-kv"><div class="k">Usuario</div><div class="v">{d.get('user','-')}</div></div>
+          </div>
+
+          <div class="mp-actions">
+            <a class="btn" href="?action=ticket">Ver detalle</a>
+            <a class="btn btn-primary" href="?action=home">Registrar otro</a>
+          </div>
+
+          <div class="mp-muted">Podés cerrar esta ventana o continuar con las opciones.</div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    html(overlay_html, height=800, scrolling=False)
