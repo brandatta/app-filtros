@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime
+import base64
 from streamlit.components.v1 import html  # Overlay HTML full-screen
 
 # ======= Estilos (evita que se corte el título) =======
@@ -10,7 +11,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ======= Inicialización de estado =======
+# ======= Util: cargar logo como base64 para usar en overlay HTML =======
+@st.cache_data(show_spinner=False)
+def get_logo_b64(path="logorelleno.png"):
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+    except Exception:
+        return None
+
+# ======= Inicialización de estado robusta =======
 def init_state():
     if 'page' not in st.session_state:
         st.session_state.page = 'linea'
@@ -24,7 +34,7 @@ def reset_to_home():
 
 init_state()
 
-# ======= Handler de acciones via query params (desde overlay) =======
+# ======= Handler de acciones via query params (desde el overlay) =======
 params = st.query_params
 if "action" in params:
     act = params.get("action")
@@ -40,15 +50,17 @@ def go_to(page):
 
 st.title("App Registro de Eventos")
 
-# --- Página: Seleccionar Línea
+# Página: Seleccionar Línea
 if st.session_state.page == "linea":
     st.header("Selecciona una línea")
     for num in [1, 2, 3]:
         if st.button(f"Línea {num}"):
+            if 'data' not in st.session_state:
+                st.session_state.data = {}
             st.session_state.data['linea'] = f"Línea {num}"
             go_to("user")
 
-# --- Página: Seleccionar Usuario
+# Página: Seleccionar Usuario
 elif st.session_state.page == "user":
     st.header("Selecciona tu usuario")
     user = st.selectbox("Usuario", ["", "usuario1", "usuario2", "usuario3"])
@@ -56,16 +68,26 @@ elif st.session_state.page == "user":
         st.session_state.data['user'] = user
         go_to("motivo")
 
-# --- Página: Seleccionar Motivo
+# Página: Seleccionar Motivo (actualizado con dropdown)
 elif st.session_state.page == "motivo":
     st.header("Selecciona un motivo")
     motivos = [
-        "CAMBIO DE LOTE", "ROTURA DE AMPOLLAS", "MAL CIERRE DE ESTUCHES",
-        "OTROS (GENERAL)", "OTROS (CARGADORES)", "OTROS (ESTUCHADORA)",
-        "CHUPETES", "OTROS (KETAN)", "BAJADA DE BLISTER",
-        "PROBLEMA DE TRAZABILIDAD", "BAJADA PROSPECTOS",
-        "ERROR SISTEMA LIXIS", "SISTEMA DE VISIÓN", "CODIFICADO WOLKE",
-        "OTROS (BLISTERA)", "FUERA DE PASO OPERATIVO B",
+        "CAMBIO DE LOTE",
+        "ROTURA DE AMPOLLAS",
+        "MAL CIERRE DE ESTUCHES",
+        "OTROS (GENERAL)",
+        "OTROS (CARGADORES)",
+        "OTROS (ESTUCHADORA)",
+        "CHUPETES",
+        "OTROS (KETAN)",
+        "BAJADA DE BLISTER",
+        "PROBLEMA DE TRAZABILIDAD",
+        "BAJADA PROSPECTOS",
+        "ERROR SISTEMA LIXIS",
+        "SISTEMA DE VISIÓN",
+        "CODIFICADO WOLKE",
+        "OTROS (BLISTERA)",
+        "FUERA DE PASO OPERATIVO B",
         "FALTA DE INSUMOS DE DEPOSITO"
     ]
     selected_motivo = st.selectbox("Motivo", [""] + motivos)
@@ -73,7 +95,7 @@ elif st.session_state.page == "motivo":
         st.session_state.data['motivo'] = selected_motivo
         go_to("submotivo")
 
-# --- Página: Seleccionar Submotivo
+# Página: Seleccionar Submotivo
 elif st.session_state.page == "submotivo":
     st.header("Selecciona un submotivo")
     for sub in ["Motor", "Sensor", "Panel"]:
@@ -81,7 +103,7 @@ elif st.session_state.page == "submotivo":
             st.session_state.data['submotivo'] = sub
             go_to("componente")
 
-# --- Página: Seleccionar Componente
+# Página: Seleccionar Componente
 elif st.session_state.page == "componente":
     st.header("Selecciona un componente")
     for comp in ["PLC", "Tornillo", "Interruptor"]:
@@ -89,7 +111,7 @@ elif st.session_state.page == "componente":
             st.session_state.data['componente'] = comp
             go_to("tipo")
 
-# --- Página: Tipo de Evento
+# Página: Tipo de Evento
 elif st.session_state.page == "tipo":
     linea_txt = st.session_state.data.get('linea', 'Línea')
     st.header(f"Selecciona una opción para {linea_txt}")
@@ -100,7 +122,7 @@ elif st.session_state.page == "tipo":
         st.session_state.data["tipo"] = "novedad"
         go_to("form")
 
-# --- Página: Formulario
+# Página: Formulario
 elif st.session_state.page == "form":
     tipo = st.session_state.data.get("tipo", "interrupcion")
     linea_txt = st.session_state.data.get('linea', 'Línea')
@@ -139,7 +161,7 @@ elif st.session_state.page == "form":
         })
         go_to("ticket")
 
-# --- Página: Ticket
+# Página: Ticket
 elif st.session_state.page == "ticket":
     data = st.session_state.data
     st.subheader("Ticket")
@@ -160,9 +182,12 @@ elif st.session_state.page == "ticket":
         if st.button("Cancelar"):
             reset_to_home()
 
-# --- Página: Confirmación con logo
+# Página: Confirmación (overlay HTML full-screen con LOGO embebido en base64)
 elif st.session_state.page == "confirmacion":
     d = st.session_state.data
+    logo_b64 = get_logo_b64("logorelleno.png")  # asegurate del nombre/ruta
+    logo_src = f"data:image/png;base64,{logo_b64}" if logo_b64 else ""
+
     overlay_html = f"""
     <!DOCTYPE html>
     <html>
@@ -181,7 +206,7 @@ elif st.session_state.page == "confirmacion":
         .mp-card {{
           width: min(520px, 92vw); background: #fff; border-radius: 16px;
           box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-          padding: 28px 24px; text-align: center;
+          padding: 28px 24px; text-align: center; border: 1px solid #eaeaea;
         }}
         .mp-logo {{
           width: 140px; margin: 0 auto 16px auto; display: block;
@@ -190,17 +215,15 @@ elif st.session_state.page == "confirmacion":
         .mp-subtitle {{ color: #5f6368; font-size: 0.96rem; margin-bottom: 14px; }}
         .mp-summary {{
           text-align: left; background: #fafafa; border: 1px solid #e0e0e0;
-          border-radius: 12px; padding: 12px 14px;
-          margin: 14px 0 18px 0; font-size: 0.95rem;
+          border-radius: 12px; padding: 12px 14px; margin: 14px 0 18px 0; font-size: 0.95rem;
         }}
         .mp-kv {{ display: flex; justify-content: space-between; gap: 12px; margin: 4px 0; }}
-        .mp-kv .k {{ color: #616161; }}
-        .mp-kv .v {{ font-weight: 600; text-align: right; }}
+        .mp-kv .k {{ color: #616161; }} .mp-kv .v {{ font-weight: 600; text-align: right; }}
         .mp-actions {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }}
         .btn {{
           display: inline-block; text-decoration: none; text-align: center;
-          border-radius: 10px; padding: 10px 14px;
-          border: 1px solid rgba(0,0,0,0.08); background: #fff; color: #111;
+          border-radius: 10px; padding: 10px 14px; border: 1px solid rgba(0,0,0,0.08);
+          background: #fff; color: #111;
         }}
         .btn-primary {{ background: #2E7D32; color: #fff; border: none; }}
         .mp-muted {{ color: #666; font-size: 0.9rem; margin-top: 10px; }}
@@ -209,8 +232,8 @@ elif st.session_state.page == "confirmacion":
     <body>
       <div class="mp-overlay">
         <div class="mp-card">
-          <img src="logorelleno.png" class="mp-logo" alt="Logo"> <!-- 👈 usa tu logo -->
-          <div class="mp-title">Evento registrado</div>
+          {"<img src='" + logo_src + "' class='mp-logo' alt='Logo'>" if logo_b64 else "<div class='mp-title'>Evento registrado</div>"}
+          {"<div class='mp-title'>Evento registrado</div>" if logo_b64 else ""}
           <div class="mp-subtitle">Ticket generado correctamente</div>
 
           <div class="mp-summary">
